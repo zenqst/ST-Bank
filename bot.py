@@ -7,6 +7,9 @@ from callbacks import coins
 from config_reader import settings
 
 from data.datebase import change_coin
+from keep_alive import keep_alive
+
+keep_alive()
 
 async def scheduled_task(bot: Bot):
     while True:
