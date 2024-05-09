@@ -14,7 +14,7 @@ router = Router()
 async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
     username = call.from_user.username
-    balance = await get_profile(user_id, username)
+    balance = get_profile(user_id, username)
 
     if call.data == 'buy':
         await bot.answer_callback_query(call.id)
@@ -25,7 +25,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
     if call.data == 'buy_v':
         await state.set_state(Buy_V.pcs)
-        await call.message.edit_text(f'Введите количество V, которое вы хотите приобрести (Баланс: {balance[2]}V)')
+        await call.message.edit_text(f'Введите количество V, которое вы хотите приобрести (Баланс: {balance[0]}₽)')
         await bot.answer_callback_query(call.id)
     if call.data == 'sell_v':
         await state.set_state(Sell_V.pcs)
@@ -34,7 +34,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
     if call.data == 'edit_buy_v':
         await state.set_state(Buy_V.pcs)
-        await call.message.edit_text(f'Введите количество V, которое вы хотите приобрести (Баланс: {balance[2]}V)', reply_markup=None)
+        await call.message.edit_text(f'Введите количество V, которое вы хотите приобрести (Баланс: {balance[0]}₽)', reply_markup=None)
         await bot.answer_callback_query(call.id)
     if call.data == 'edit_sell_v':
         await state.set_state(Sell_V.pcs)
@@ -56,7 +56,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     
     if call.data == 'buy_st':
         await state.set_state(Buy_ST.pcs)
-        await call.message.edit_text(f'Введите количество ST, которое вы хотите приобрести (Баланс: {balance[1]}ST)')
+        await call.message.edit_text(f'Введите количество ST, которое вы хотите приобрести (Баланс: {balance[0]}₽)')
         await bot.answer_callback_query(call.id)
     if call.data == 'sell_st':
         await state.set_state(Sell_ST.pcs)
@@ -66,7 +66,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     if call.data == 'edit_buy_st':
         await state.set_state(Buy_ST.pcs)
         await bot.answer_callback_query(call.id)
-        await call.message.edit_text(f'Введите количество ST, которое вы хотите приобрести (Баланс: {balance[1]}ST)', reply_markup=None)
+        await call.message.edit_text(f'Введите количество ST, которое вы хотите приобрести (Баланс: {balance[0]}₽)', reply_markup=None)
     if call.data == 'edit_sell_st':
         await state.set_state(Sell_ST.pcs)
         await bot.answer_callback_query(call.id)
