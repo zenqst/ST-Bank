@@ -6,7 +6,7 @@ from config_reader import st, v
 
 import random
 
-import datetime
+from config_reader import config
 
 from openpyxl import load_workbook
 
@@ -180,7 +180,7 @@ def sell_coins(id, username, name, pcs: int):
 
         return f'✅ <b>Успешно!</b>\n\nВы продали <b>{pcs}{name}</b> за <b>{price}₽</b>'
     
-def change_coin(name):
+async def change_coin(name, bot):
     coin = globals()[name.lower()]  # Получаем модуль динамически
     max_growth = getattr(coin, 'max_growth')
     max_fall = getattr(coin, 'max_fall')
@@ -197,8 +197,10 @@ def change_coin(name):
 
     print(f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
 
-    with open('text.txt', 'a') as f:
-        f.write(f'{name} ({datetime.datetime.now().time()})\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n\n\n')
+    # with open('text.txt', 'a') as f:
+    #     f.write(f'{name} ({datetime.datetime.now().time()})\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n\n\n')
+
+    await bot.send_message(config.admin_id)
 
     update_data('coins', {'curr_price': new_price, 'diff_percent': new_diff_percent}, {'name': name})
 
