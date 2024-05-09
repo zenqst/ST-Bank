@@ -15,7 +15,7 @@ async def scheduled_task(bot: Bot):
     while True:
         await change_coin('ST', bot)
         await change_coin('V', bot)
-        await asyncio.sleep(120)
+        await asyncio.sleep(30)
 
 async def main():
     bot = Bot(settings.bot_token.get_secret_value(), parse_mode="HTML")

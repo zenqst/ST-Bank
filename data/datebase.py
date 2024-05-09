@@ -200,7 +200,7 @@ async def change_coin(name, bot):
     # with open('text.txt', 'a') as f:
     #     f.write(f'{name} ({datetime.datetime.now().time()})\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n\n\n')
 
-    await bot.send_message(config.admin_id)
+    await bot.send_message(config.admin_id, f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
 
     update_data('coins', {'curr_price': new_price, 'diff_percent': new_diff_percent}, {'name': name})
 
