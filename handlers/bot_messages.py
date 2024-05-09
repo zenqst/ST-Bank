@@ -28,7 +28,7 @@ async def profile(message: Message):
     data = get_profile(user_id, username)
 
     if data:
-        await message.answer(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]}\n<b>ST:</b> {data[1]}\n<b>V:</b> {data[2]}', reply_markup=inline.profile_buttons)
+        await message.answer(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]}\n<b>ST:</b> {data[1]}\n<b>V:</b> {data[2]}\n📦: ?\n🔑: ?', reply_markup=inline.profile_buttons)
     else:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
 

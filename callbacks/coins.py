@@ -14,6 +14,7 @@ router = Router()
 async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
     username = call.from_user.username
+    balance = await get_profile
 
     if call.data == 'buy':
         await bot.answer_callback_query(call.id)
@@ -24,52 +25,52 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
     if call.data == 'buy_v':
         await state.set_state(Buy_V.pcs)
-        await call.message.edit_text('Введите количество V, которое вы хотите приобрести')
+        await call.message.edit_text(f'Введите количество V, которое вы хотите приобрести (Баланс: {balance[2]}V)')
         await bot.answer_callback_query(call.id)
     if call.data == 'sell_v':
         await state.set_state(Sell_V.pcs)
-        await call.message.edit_text('Введите количество V, которое вы хотите продать')
+        await call.message.edit_text(f'Введите количество V, которое вы хотите продать (Баланс: {balance[2]}V)')
         await bot.answer_callback_query(call.id)
 
     if call.data == 'edit_buy_v':
         await state.set_state(Buy_V.pcs)
-        await call.message.edit_text('Введите количество V, которое вы хотите приобрести', reply_markup=None)
+        await call.message.edit_text(f'Введите количество V, которое вы хотите приобрести (Баланс: {balance[2]}V)', reply_markup=None)
         await bot.answer_callback_query(call.id)
     if call.data == 'edit_sell_v':
         await state.set_state(Sell_V.pcs)
-        await call.message.edit_text('Введите количество V, которое вы хотите продать', reply_markup=None)
+        await call.message.edit_text(f'Введите количество V, которое вы хотите продать (Баланс: {balance[2]}V)', reply_markup=None)
         await bot.answer_callback_query(call.id)
     
     if call.data == 'agree_buy_v':
         data = await state.get_data()
-        text = buy_coins(user_id, username, 'V', data['pcs'])
+        text = await buy_coins(user_id, username, 'V', data['pcs'])
         await call.message.edit_text(text, reply_markup=None)
         await state.clear()
 
     if call.data == 'agree_sell_v':
         data = await state.get_data()
-        text = sell_coins(user_id, username, 'V', data['pcs'])
+        text = await sell_coins(user_id, username, 'V', data['pcs'])
         await call.message.edit_text(text, reply_markup=None)
         await state.clear()
 
     
     if call.data == 'buy_st':
         await state.set_state(Buy_ST.pcs)
-        await call.message.edit_text('Введите количество ST, которое вы хотите приобрести')
+        await call.message.edit_text(f'Введите количество ST, которое вы хотите приобрести (Баланс: {balance[1]}ST)')
         await bot.answer_callback_query(call.id)
     if call.data == 'sell_st':
         await state.set_state(Sell_ST.pcs)
-        await call.message.edit_text('Введите количество ST, которое вы хотите продать')
+        await call.message.edit_text(f'Введите количество ST, которое вы хотите продать (Баланс: {balance[1]}ST)')
         await bot.answer_callback_query(call.id)
 
     if call.data == 'edit_buy_st':
         await state.set_state(Buy_ST.pcs)
         await bot.answer_callback_query(call.id)
-        await call.message.edit_text('Введите количество ST, которое вы хотите приобрести', reply_markup=None)
+        await call.message.edit_text(f'Введите количество ST, которое вы хотите приобрести (Баланс: {balance[1]}ST)', reply_markup=None)
     if call.data == 'edit_sell_st':
         await state.set_state(Sell_ST.pcs)
         await bot.answer_callback_query(call.id)
-        await call.message.edit_text('Введите количество ST, которое вы хотите продать', reply_markup=None)
+        await call.message.edit_text(f'Введите количество ST, которое вы хотите продать (Баланс: {balance[1]}ST)', reply_markup=None)
     
     if call.data == 'agree_buy_st':
         data = await state.get_data()
