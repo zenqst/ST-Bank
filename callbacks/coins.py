@@ -14,7 +14,7 @@ router = Router()
 async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
     username = call.from_user.username
-    balance = await get_profile
+    balance = await get_profile(user_id, username)
 
     if call.data == 'buy':
         await bot.answer_callback_query(call.id)
