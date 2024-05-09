@@ -1,0 +1,5 @@
+aiogram==3.6.0
+psycopg2==2.9.9
+pydantic==2.7.1
+pydantic_settings==2.2.1
+python-dotenv==1.0.1
