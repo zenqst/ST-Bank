@@ -3,12 +3,11 @@ from os import getenv
 from dotenv import load_dotenv
 
 from config_reader import st, v
+from data.google_sheets import add_to_table
 
 import random
 
 from config_reader import config
-
-from openpyxl import load_workbook
 
 load_dotenv()
 
@@ -196,6 +195,8 @@ async def change_coin(name, bot):
         new_price = float(getattr(coin, 'min_price')) + float(random.randint(0, 100))
 
     print(f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
+
+    add_to_table(name, new_price)
 
     # with open('text.txt', 'a') as f:
     #     f.write(f'{name} ({datetime.datetime.now().time()})\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n\n\n')

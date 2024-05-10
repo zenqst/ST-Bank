@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "st-bank-project",
+  "private_key_id": "4e75e6a5d36c4b8a818f28cf40a108a55762a3f0",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDnHjWYhDVPDmQT\n9FtMh+aPuAliAfJcVSQLPKJ564d2jssWpW6X/2zPQvnhpnkQLIEAuNX8deyf02EU\ntRm36RzqY79Ccs6t8/9M3aVprM7IKIr1Yn27QvWmXb1Cf1bMxqtSYCMPfP437GBz\nQ/6LQ6FWUlNFyYM4iz+Q7Z/qi61Mcymxfe2/tRBe9w+AVTdOguGyks/2BqaZDDyX\n2y66gTGgX1HWJLkpqmdDSDcpwdv+jCAKGWOsrKF/Vt1ZI6btWgzkH2j/KtpeOngl\nJ1TtYPXZgZqvkeu7ItRjy2gK6LzDJxxLwEduqbC89hrUBaWQYCYr16aVPox8iQ7L\noiMWN81JAgMBAAECggEAAJAuKt7jz/TaV4DtYvPU2sKf728Qx9X5iRaNL/0NNxXC\ne8hmk1LjmX3aozAYeT/8+atiqmrK/vCo6mdma+NMS61C4jJaK1P3ajZe+/ZjwOsj\n9rpgHOh3XVIGd2PnDMx36PLnJ3t4OaMMEeR0J2g9FCRgHSNb0ZfNYR9hReIpys7H\n5t07u9dYgOpXai/5dj5Z/MdAut6M4bFXvhsfRbRMo8DQLHppQqLbE6PLErlC+Cnk\nevlzug9nkRpFxL0fKDYxAoCctnpYENgosY102aI6WlWcG8omR10txpUycafS0Qze\n+B1B7eCzAFNETvljkQMDbKFLxM2HJwgbAtZOQNMo/wKBgQD5T+zg8KUD8v24/9I4\nDfur3oDpKW6tcZVJgr5JxOejAfDCqbl8I9xodhqRdnO58ZvQJWBJVwZRn4oRYMpl\nQevSRUp+CIeR6U8jfU2J4OnC0TyDeDqGMlvahJQXmaQtVMo93NPHMwf66JonDxcS\nD7rXqNRz1sSFsDdZMtXmmz8oiwKBgQDtUVdKGEfdziV8XyvJiE12ZWOjkSSxT01b\nFu6/bJ4KagqiuQ4XHOxQ041MVuLwepJuhZQzOO9u73MyYG3PThCir8vMOBU6bUi2\nwSJeqecUC27RXHQJkZ7Sd8l4DcjjxJnfi83Uyag73O4+ZJpGFTO5AGi3Z6BiVo+p\nr+xgZjXH+wKBgQC45YmsGUyIbUG2XiOt5tDrWg0I3u1yPHaXGhu94gZYYiwIco9Z\nfc8MuepiTxLsqD8CU3XhbmUFS+i9kqcICae3PiRM7E5+7CUBEQDcbK1xCnRynEvr\nEpYEraaXCh80b1m+H3QAm9wjPTZ2GT7m6juLjW5iqrj83P9va8AvUpu4mQKBgAn2\nMyLSGBowcBRjblQcW5wPr3oLOq4StR2Qvd7dMVkgkGe6OuQve5/88V51+zq6+nCX\nPNxVlH9kn8JKl/FuxnX9ySE+bW2xbq71NnsgyKlnvXQeXGSWb0NIcfWPJpKhCxB+\nLtqyyFQS9xE5adxtQWmPodWpDOtz1L37u4FkaPeHAoGAaavFRTTubbZnTMteCDfK\nH988dfNPP0zfKTnjmh5j6dpzgeKc0POH34f5ZGr+wIrwokrHPjfj4jioFPawHo9z\nosES3fthtbe4uZ8IObl7kj6JeXSSnjgVDYvcHfY61hJX7v+1VYeJon6LQf/daMiv\nsid/0OuoGuM+kGqwZv8mPnI=\n-----END PRIVATE KEY-----\n",
+  "client_email": "st-bank@st-bank-project.iam.gserviceaccount.com",
+  "client_id": "111912295735688618446",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/st-bank%40st-bank-project.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -21,7 +21,7 @@ class ST():
 
 class V():
     max_growth = 0.5
-    max_fall = 0.4
+    max_fall = 0.5
     min_price = 200
 
 

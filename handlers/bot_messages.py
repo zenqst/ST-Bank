@@ -9,9 +9,6 @@ from data.datebase import get_profile, get_price
 
 router = Router()
 
-current_page = 1
-total_pages = 2
-
 @router.message(F.text.lower().in_(["💲 открыть брокерский счёт"]))
 async def open(message: Message):
     await message.reply("✅ <b>Поздравляю! Вы открыли брокерский счёт в ST Bank.</b>\n\nВ подарок вам было выдано <b>2000₽, 10ST и 5V</b>\n\n⚠️ Акции не являются настоящими. Все валюты исключительно виртуальные и не связаны с реальными денежными средствами.", reply_markup = reply.main)
@@ -47,7 +44,7 @@ async def torg(message: Message):
     else:
         percent_v = f'{data_v[1]}%'
 
-    await message.answer(f'<b>Текущая цена:</b>\n1ST = {data_st[0]}₽ ({percent_st})\n1V = {data_v[0]}₽ ({percent_v})', reply_markup=inline.st_buttons)
+    await message.answer(f'<b>Текущая цена:</b>\n1ST = {data_st[0]}₽ ({percent_st})\n1V = {data_v[0]}₽ ({percent_v})\n', reply_markup=inline.st_buttons)
 
 # @router.message()
 # async def echo(message: Message):
