@@ -196,7 +196,7 @@ async def change_coin(name, bot):
 
     print(f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
 
-    add_to_table(name, new_price)
+    await add_to_table(name, new_price)
 
     # with open('text.txt', 'a') as f:
     #     f.write(f'{name} ({datetime.datetime.now().time()})\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n\n\n')

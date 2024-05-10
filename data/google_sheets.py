@@ -3,8 +3,7 @@ import httplib2
 from googleapiclient import discovery
 from oauth2client.service_account import ServiceAccountCredentials
 
-def add_to_table(name, value):
-    # Определяем столбец для добавления данных
+async def add_to_table(name, value):
     if name == 'ST':
         column = 'A'
     elif name == 'V':
