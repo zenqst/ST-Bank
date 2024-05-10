@@ -27,20 +27,22 @@ def select_data(rows: list, table: str, identifiers: dict):
     """
 
     con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
-    cur = con.cursor() 
+    cur = con.cursor()
 
-    identifiers_str = ' AND '.join([f"{key} = %s" for key in identifiers.keys()])
-    rows_str = ', '.join(rows)
-    query = f"SELECT {rows_str} FROM {table} WHERE {identifiers_str}"
-    
-    values = tuple(identifiers.values())
+    if identifiers:  # Проверяем, есть ли какие-либо идентификаторы
+        identifiers_str = ' AND '.join([f"{key} = %s" for key in identifiers.keys()])
+        query = f"SELECT {', '.join(rows)} FROM {table} WHERE {identifiers_str}"
+        values = tuple(identifiers.values())
+    else:
+        query = f"SELECT {', '.join(rows)} FROM {table}"
+        values = None
 
     cur.execute(query, values)
     result = cur.fetchone()
 
     cur.close()
     con.close()
-    
+
     if result is None:
         return None
     else:
@@ -124,7 +126,7 @@ def register(id, username):
     
 def get_profile(id, username):
     if (register(id, username)):
-        data = select_data(['ruble', 'st', 'v'], 'users', {'id': id})
+        data = select_data(['ruble', 'st', 'v', 'boxes'], 'users', {'id': id})
         return data
     else:
         return False
@@ -247,4 +249,56 @@ async def advanced_sell(name, state, message, inline):
         await message.answer(f"После продажи <b>{data['pcs']}{name}</b> у вас будет <b>{price}₽</b> (Текущий баланс: <b>{new_balance}{name}</b>)\n\nПодтвердите или отмените покупку кнопками ниже.", reply_markup=buttons)
     else:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
-    
+
+
+async def open_box(id, username, message):
+    balance = get_profile(id, username)
+
+    rarities_icons = {
+        'Легендарная': '🟡',
+        'Мифическая': '🔴',
+        'Эпическая': '🟣',
+        'Экзотическая': '🟢',
+        'Обычная': '⚪️'
+    }
+
+    rarities_chances = {
+        'Легендарная': 2,
+        'Мифическая': 10,
+        'Эпическая': 15,
+        'Экзотическая': 27,
+        'Обычная': 50
+    }
+
+    # Выбор случайного предмета с учетом его редкости и шанса
+    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    cur = con.cursor()
+
+    query = "SELECT id, name, rarity FROM loot"
+    cur.execute(query)
+    all_items = cur.fetchall()
+
+    if not balance:
+        await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
+    if not all_items:
+        await message.answer('⚠️ Нет <b>доступных предметов</b> для открытия.')
+    if balance[3] < 1:
+        await message.answer('⚠️ Недостаточно <b>боксов</b> для открытия.')
+    else:
+        items_with_rarity = []
+        for item in all_items:
+            item_id, item_name, item_rarity = item[0], item[1], item[2]  # Извлекаем значения из кортежа
+            for _ in range(rarities_chances[item_rarity]):
+                items_with_rarity.append(item)
+
+        selected_item = random.choice(items_with_rarity)
+
+        # Обновление данных пользователя после открытия бокса
+        update_data('users', {'boxes': int(balance[3]) - 1}, {'id': id})
+
+        # Формирование сообщения с выбранным предметом и его редкостью
+        rarity_icon = rarities_icons[selected_item[2]]  # Получаем эмодзи для редкости
+        await message.answer(f"Поздравляем!\nВы получили <b>{selected_item[1]}</b> (<i>{rarity_icon} {selected_item[2]}</i>)\n\nТекущий баланс: {balance[3] - 1} 📦")
+
+    cur.close()
+    con.close()

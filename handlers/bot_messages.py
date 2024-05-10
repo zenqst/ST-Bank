@@ -5,7 +5,7 @@ from keyboards import reply, inline, builders, fabrics
 
 from config_reader import config
 
-from data.datebase import get_profile, get_price
+from data.datebase import get_profile, get_price, open_box
 
 router = Router()
 
@@ -25,9 +25,16 @@ async def profile(message: Message):
     data = get_profile(user_id, username)
 
     if data:
-        await message.answer(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]}\n<b>ST:</b> {data[1]}\n<b>V:</b> {data[2]}\n📦: ?\n🔑: ?', reply_markup=inline.profile_buttons)
+        await message.answer(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]}\n<b>ST:</b> {data[1]}\n<b>V:</b> {data[2]}\n📦: {data[3]}', reply_markup=inline.profile_buttons)
     else:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
+
+@router.message(F.text.lower().in_(["📦 открыть бокс"]))
+async def profile(message: Message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+
+    await open_box(user_id, username, message)
 
 @router.message(F.text.lower().in_(["📊 торговать"]))
 async def torg(message: Message):

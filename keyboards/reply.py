@@ -16,8 +16,9 @@ register = ReplyKeyboardMarkup(
 
 main = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="📊 Торговать"),
-         KeyboardButton(text="📋 Профиль"),]
+        [KeyboardButton(text="📊 Торговать"),],
+        [KeyboardButton(text="📋 Профиль"),
+         KeyboardButton(text="📦 Открыть бокс"),]
     ],
     resize_keyboard=True,
     one_time_keyboard=False,
