@@ -43,13 +43,13 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     
     if call.data == 'agree_buy_v':
         data = await state.get_data()
-        text = await buy_coins(user_id, username, 'V', data['pcs'])
+        text = buy_coins(user_id, username, 'V', data['pcs'])
         await call.message.edit_text(text, reply_markup=None)
         await state.clear()
 
     if call.data == 'agree_sell_v':
         data = await state.get_data()
-        text = await sell_coins(user_id, username, 'V', data['pcs'])
+        text = sell_coins(user_id, username, 'V', data['pcs'])
         await call.message.edit_text(text, reply_markup=None)
         await state.clear()
 
