@@ -19,3 +19,6 @@ class Buy_V(StatesGroup):
 
 class Sell_V(StatesGroup):
     pcs = State()
+
+class Buy_Boxes(StatesGroup):
+    pcs = State()

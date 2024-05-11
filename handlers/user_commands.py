@@ -20,4 +20,4 @@ async def start(message: Message):
     else:
         reply_markup = reply.register
     
-    await message.answer(f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал(-а) в бот <b>ST Seller</b> ({config.version[0]}).\n\n⚠️ Пока что бот находится в закрытом альфа-тестировании, для получения доступа обратитесь к @zenq_st", reply_markup=reply_markup)
+    await message.answer(f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал(-а) в бот <b>ST Bank</b> ({config.version[0]})", reply_markup=reply_markup)

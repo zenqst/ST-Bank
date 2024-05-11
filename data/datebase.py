@@ -2,12 +2,15 @@ from psycopg2 import connect
 from os import getenv
 from dotenv import load_dotenv
 
+import humanize
+
 from config_reader import st, v
 from data.google_sheets import add_to_table
 
 import random
 
 from config_reader import config
+import json
 
 load_dotenv()
 
@@ -158,6 +161,22 @@ def buy_coins(id, username, name, pcs: int):
 
         return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{pcs}{name}</b> за <b>{price}₽</b>'
     
+def buy_boxes(id, username, pcs: int):
+    price = get_price('Box')
+    price = float(price[0]) * float(pcs)
+
+    balance = get_profile(id, username)
+
+    if price > balance[1]:
+        return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}ST (Баланс: {balance[1]}ST)'
+    if price == 0:
+        return f'❌ <b>Ошибка</b>\n\nВведите число больше 0'
+    else:
+        update_data('users', {'ruble': balance[0] - price}, {'id': id})
+        update_data('users', {'boxes': balance[3] + int(pcs)}, {'id': id})
+
+        return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{pcs} 📦</b> за <b>{price}ST</b>'
+    
 def sell_coins(id, username, name, pcs: int):
     price = get_price(name)
     price = float(price[0]) * float(pcs)
@@ -224,6 +243,21 @@ async def advanced_buy(name, state, message, inline):
     else:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
 
+async def advanced_buy_boxes(name, state, message, inline):
+    await state.update_data(pcs=message.text)
+    user_id = message.from_user.id
+    username = message.from_user.username
+
+    data = await state.get_data()
+    price = get_price(name)
+    price = float(price[0]) * float(data['pcs'])
+    balance = get_profile(user_id, username)
+
+    if balance:
+        await message.answer(f"Для покупки <b>{data['pcs']} 📦</b> потребуется <b>{price}ST</b> (Ваш баланс: <b>{balance[1]}ST</b>)\n\nПодтвердите или отмените покупку кнопками ниже.", reply_markup=inline.agree_buy_box_buttons)
+    else:
+        await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
+
 async def advanced_sell(name, state, message, inline):
     await state.update_data(pcs=message.text)
     user_id = message.from_user.id
@@ -270,7 +304,14 @@ async def open_box(id, username, message):
         'Обычная': 50
     }
 
-    # Выбор случайного предмета с учетом его редкости и шанса
+    replay_compensation = {
+        'Легендарная': 10000,
+        'Мифическая': 5000,
+        'Эпическая': 2500,
+        'Экзотическая': 1000,
+        'Обычная': 500
+    }
+
     con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
     cur = con.cursor()
 
@@ -278,27 +319,102 @@ async def open_box(id, username, message):
     cur.execute(query)
     all_items = cur.fetchall()
 
+    query = "SELECT loot FROM users WHERE id = %s"
+    cur.execute(query, (id,))
+    user_loot = cur.fetchone()[0]
+
+    if user_loot is None:
+        user_loot = []
+
     if not balance:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
-    if not all_items:
-        await message.answer('⚠️ Нет <b>доступных предметов</b> для открытия.')
-    if balance[3] < 1:
+    elif balance[3] < 1:
         await message.answer('⚠️ Недостаточно <b>боксов</b> для открытия.')
     else:
-        items_with_rarity = []
-        for item in all_items:
-            item_id, item_name, item_rarity = item[0], item[1], item[2]  # Извлекаем значения из кортежа
-            for _ in range(rarities_chances[item_rarity]):
-                items_with_rarity.append(item)
+        selected_rarity = random.choices(list(rarities_chances.keys()), weights=rarities_chances.values(), k=1)[0]
+        available_items = [item for item in all_items if item[2] == selected_rarity]
 
-        selected_item = random.choice(items_with_rarity)
+        selected_item = random.choice(available_items)
+        item_id = selected_item[0]
 
-        # Обновление данных пользователя после открытия бокса
+        rarity_icon = rarities_icons[selected_item[2]]
+
+        if any(item['id'] == item_id and item['exist'] for item in user_loot):
+            price = replay_compensation[selected_item[2]]
+            update_data('users', {'st': balance[1] + price}, {'id': id})
+            await message.answer(f"Вы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\nПредмет-повторка: +{price}ST\n\nТекущий баланс: {balance[1] + price}ST и {balance[3]} 📦")
+        else:
+            user_loot.append({'id': item_id, 'exist': True})
+
+            # Обновляем JSONB-строку в базе данных
+            update_query = "UPDATE users SET loot = %s WHERE id = %s"
+            cur.execute(update_query, (json.dumps(user_loot), id))
+            con.commit()
+
+            await message.answer(f"<b>Поздравляем!</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3]} 📦")
+        
         update_data('users', {'boxes': int(balance[3]) - 1}, {'id': id})
-
-        # Формирование сообщения с выбранным предметом и его редкостью
-        rarity_icon = rarities_icons[selected_item[2]]  # Получаем эмодзи для редкости
-        await message.answer(f"Поздравляем!\nВы получили <b>{selected_item[1]}</b> (<i>{rarity_icon} {selected_item[2]}</i>)\n\nТекущий баланс: {balance[3] - 1} 📦")
 
     cur.close()
     con.close()
+
+async def items(id, username, call, inline):
+    rarities_icons = {
+        'Легендарная': '🟡',
+        'Мифическая': '🔴',
+        'Эпическая': '🟣',
+        'Экзотическая': '🟢',
+        'Обычная': '⚪️'
+    }
+
+    rarities_chances = {
+        'Легендарная': 2,
+        'Мифическая': 10,
+        'Эпическая': 15,
+        'Экзотическая': 27,
+        'Обычная': 50
+    }
+
+    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    cur = con.cursor()
+
+    query = "SELECT id, name, rarity FROM loot"
+    cur.execute(query)
+    all_items = cur.fetchall()
+
+    query = "SELECT loot FROM users WHERE id = %s"
+    cur.execute(query, (id,))
+    user_loot = cur.fetchone()[0]
+
+    text = ""
+    for rarity, chance in rarities_chances.items():
+        text += f"<b>{rarities_icons[rarity]} {rarity} ({chance}%):</b> — "
+        available_items = [item for item in all_items if item[2] == rarity]
+        item_count = len(available_items)
+        if user_loot:
+            count_with_user = len([item for item in available_items if any(user_item['id'] == item[0] and user_item['exist'] for user_item in user_loot)])
+            if count_with_user == 0:
+                text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+            else:
+                text += f"<b>{count_with_user}</b> из {item_count}\n"
+                for item in available_items:
+                    if any(user_item['id'] == item[0] and user_item['exist'] for user_item in user_loot):
+                        text += f"{item[1]}\n"
+        else:
+            text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+
+        text += "\n"  # Добавляем дополнительный перенос строки между редкостями
+
+    cur.close()
+    con.close()
+
+    return await call.message.edit_text(text, reply_markup=inline.items_buttons)
+
+def hu_number(number):
+    suffix = humanize.intword(number)
+    parts = suffix.split()
+    if len(parts) == 2:
+        return parts[0] + parts[1][0].upper()
+    elif len(parts) == 3:
+        return parts[0] + parts[2][0].upper()
+    return parts[0]

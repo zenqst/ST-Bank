@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     )
 
 class Config():
-    version = 'v0.3.0',
+    version = 'v0.5.0',
     admin_id = 980316238
 
 class ST():
@@ -21,8 +21,8 @@ class ST():
 
 class V():
     max_growth = 0.45
-    max_fall = 0.5
-    min_price = 200
+    max_fall = 0.45
+    min_price = 500
 
 
 settings = Settings()
