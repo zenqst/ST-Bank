@@ -8,6 +8,9 @@ st_buttons = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(text="➕ Купить", callback_data='buy'),
             InlineKeyboardButton(text="➖ Продать", callback_data="sell")
+        ],
+        [
+            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
         ]
     ]
 )
@@ -18,6 +21,9 @@ buy_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text="ST", callback_data='buy_st'),
             InlineKeyboardButton(text="V", callback_data="buy_v"),
             InlineKeyboardButton(text='📦', callback_data='buy_box')
+        ],
+        [
+            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
         ]
     ]
 )
@@ -27,6 +33,9 @@ sell_buttons = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(text="ST", callback_data='sell_st'),
             InlineKeyboardButton(text="V", callback_data="sell_v")
+        ],
+        [
+            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
         ]
     ]
 )

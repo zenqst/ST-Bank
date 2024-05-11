@@ -153,7 +153,7 @@ def buy_coins(id, username, name, pcs: int):
 
     if price > balance[0]:
         return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}₽ (Баланс: {balance[0]}₽)'
-    if price == 0:
+    if price <= 0:
         return f'❌ <b>Ошибка</b>\n\nВведите число больше 0'
     else:
         update_data('users', {'ruble': balance[0] - price}, {'id': id})
@@ -169,7 +169,7 @@ def buy_boxes(id, username, pcs: int):
 
     if price > balance[1]:
         return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}ST (Баланс: {balance[1]}ST)'
-    if price == 0:
+    if price <= 0:
         return f'❌ <b>Ошибка</b>\n\nВведите число больше 0'
     else:
         update_data('users', {'ruble': balance[0] - price}, {'id': id})
