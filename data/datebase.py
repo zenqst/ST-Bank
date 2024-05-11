@@ -172,7 +172,7 @@ def buy_boxes(id, username, pcs: int):
     if price <= 0:
         return f'❌ <b>Ошибка</b>\n\nВведите число больше 0'
     else:
-        update_data('users', {'ruble': balance[0] - price}, {'id': id})
+        update_data('users', {'st': balance[0] - price}, {'id': id})
         update_data('users', {'boxes': balance[3] + int(pcs)}, {'id': id})
 
         return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{pcs} 📦</b> за <b>{price}ST</b>'
