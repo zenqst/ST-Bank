@@ -14,6 +14,8 @@ import json
 
 load_dotenv()
 
+img = open('data/box_open.gif', 'rb')
+
 dbname = 'postgres'
 user = 'postgres.sbcrsartgfmzvwuiyqdr'
 host = 'aws-0-eu-central-1.pooler.supabase.com'
@@ -342,7 +344,7 @@ async def open_box(id, username, message):
         if any(item['id'] == item_id and item['exist'] for item in user_loot):
             price = replay_compensation[selected_item[2]]
             update_data('users', {'st': balance[1] + price}, {'id': id})
-            await message.answer(f"Вы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\nПредмет-повторка: +{price}ST\n\nТекущий баланс: {balance[1] + price}ST и {balance[3]} 📦")
+            await message.answer(f"Вы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\nПредмет-повторка: +{price}ST\n\nТекущий баланс: {balance[1] + price}ST и {balance[3] - 1} 📦")
         else:
             user_loot.append({'id': item_id, 'exist': True})
 
@@ -351,7 +353,7 @@ async def open_box(id, username, message):
             cur.execute(update_query, (json.dumps(user_loot), id))
             con.commit()
 
-            await message.answer(f"<b>Поздравляем!</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3]} 📦")
+            await message.answer(f"<b>Поздравляем!</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3] - 1} 📦")
         
         update_data('users', {'boxes': int(balance[3]) - 1}, {'id': id})
 
