@@ -353,8 +353,12 @@ async def open_box(id, username, message):
             cur.execute(update_query, (json.dumps(user_loot), id))
             con.commit()
 
-            await message.answer(f"<b>Поздравляем!</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3] - 1} 📦")
+            refund_box = random.randint(0, 1)
+
+            if refund_box == 0:
+                await message.answer(f"<b>Удача на вашей стороне! Бокс не потратился при открытии</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3]} 📦")
         
+        await message.answer(f"<b>Поздравляем!</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3] - 1} 📦")
         update_data('users', {'boxes': int(balance[3]) - 1}, {'id': id})
 
     cur.close()
