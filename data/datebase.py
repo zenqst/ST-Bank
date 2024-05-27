@@ -357,7 +357,8 @@ async def open_box(id, username, message):
 
             if refund_box == 0:
                 await message.answer(f"<b>Удача на вашей стороне! Бокс не потратился при открытии</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3]} 📦")
-        
+                return
+
         await message.answer(f"<b>Поздравляем!</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3] - 1} 📦")
         update_data('users', {'boxes': int(balance[3]) - 1}, {'id': id})
 
