@@ -14,7 +14,7 @@ import json
 
 load_dotenv()
 
-img = open('data/box_open.gif', 'rb')
+# img = open('data/box_open.gif', 'rb')
 
 dbname = 'postgres'
 user = 'postgres.sbcrsartgfmzvwuiyqdr'
