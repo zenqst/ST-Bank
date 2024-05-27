@@ -307,11 +307,11 @@ async def open_box(id, username, message):
     }
 
     replay_compensation = {
-        'Легендарная': 10000,
-        'Мифическая': 5000,
-        'Эпическая': 2500,
-        'Экзотическая': 1000,
-        'Обычная': 500
+        'Легендарная': 50,
+        'Мифическая': 40,
+        'Эпическая': 30,
+        'Экзотическая': 20,
+        'Обычная': 10
     }
 
     con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
