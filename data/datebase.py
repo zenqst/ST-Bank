@@ -125,6 +125,8 @@ def delete_data(table: str, identifiers: dict):
 def register(id, username):
     if (select_data(['username'], 'users', {'id': id})):
         return True
+    if not username:
+        return False
     else:
         insert_data('users', {'id': id, 'username': username, 'ruble': 2000, 'st': 10, 'v': 5})
         return False
@@ -426,3 +428,30 @@ def hu_number(number):
     elif len(parts) == 3:
         return parts[0] + parts[2][0].upper()
     return parts[0]
+
+async def sending(text, bot):
+    # Подключаемся к базе данных
+    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    cur = con.cursor()
+
+    # Извлекаем всех пользователей из таблицы users
+    cur.execute("SELECT id FROM test_users")
+    users = cur.fetchall()
+
+    cur.close()
+    con.close()
+
+    # Инициализируем счётчики
+    success_count = 0
+    error_count = 0
+
+    # Рассылка сообщений
+    for user in users:
+        user_id = user[0]
+        try:
+            await bot.send_message(user_id, text)
+            success_count += 1
+        except Exception as e:
+            error_count += 1
+
+    return f"Успешно отправлено: {success_count}\nНе удалось отправить: {error_count}"

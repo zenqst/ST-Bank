@@ -1,12 +1,15 @@
 from aiogram import Router, Bot
 from aiogram.types import Message
 from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.fsm.context import FSMContext
 
 from keyboards import reply
 
 from config_reader import config
 
-from data.datebase import register, get_profile
+from data.datebase import register, sending
+
+from utils.states import Sending_Text
 
 router = Router()
 
@@ -21,3 +24,18 @@ async def start(message: Message):
         reply_markup = reply.register
     
     await message.answer(f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал(-а) в бот <b>ST Bank</b> ({config.version[0]})\n\nЗдесь тебе придётся торговать акциями, открывать боксы, <i>фиксировать убытики</i>", reply_markup=reply_markup)
+
+@router.message(Command('sending'))
+async def sending_command(message: Message, state: FSMContext):
+    if message.from_user.id == config.admin_id:
+        await state.set_data(Sending_Text.text)
+        await message.answer('Отправьте текст рассылки')
+
+@router.message(Sending_Text.text)
+async def sending_process(message: Message, state: FSMContext):
+    data = state.get_data()
+    result = await sending(data['text'], Bot)
+
+    await message.reply(result)
+
+    await state.clear()

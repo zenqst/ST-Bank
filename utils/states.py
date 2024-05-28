@@ -22,3 +22,6 @@ class Sell_V(StatesGroup):
 
 class Buy_Boxes(StatesGroup):
     pcs = State()
+
+class Sending_Text(StatesGroup):
+    text = State()
