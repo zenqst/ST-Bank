@@ -28,14 +28,14 @@ async def start(message: Message):
 @router.message(Command('sending'))
 async def sending_command(message: Message, state: FSMContext):
     if message.from_user.id == config.admin_id:
-        await state.set_state(Sending_Text.text)
+        await state.set_state(SendingText.text)
         await message.answer('Отправьте текст рассылки')
 
-@router.message(Sending_Text.text)
+@router.message(SendingText.text)
 async def sending_process(message: Message, state: FSMContext):
+    await state.update_data(text=message.text)
     data = await state.get_data()
-    result = await sending(data['text'], Bot)
+    result = await sending(data['text'], bot)
 
     await message.reply(result)
-
     await state.clear()
