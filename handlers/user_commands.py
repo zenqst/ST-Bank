@@ -28,7 +28,7 @@ async def start(message: Message):
 @router.message(Command('sending'))
 async def sending_command(message: Message, state: FSMContext):
     if message.from_user.id == config.admin_id:
-        await state.set_data(Sending_Text.text)
+        await state.set_state(Sending_Text.text)
         await message.answer('Отправьте текст рассылки')
 
 @router.message(Sending_Text.text)
