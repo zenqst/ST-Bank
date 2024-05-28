@@ -33,7 +33,7 @@ async def sending_command(message: Message, state: FSMContext):
 
 @router.message(Sending_Text.text)
 async def sending_process(message: Message, state: FSMContext):
-    data = state.get_data()
+    data = await state.get_data()
     result = await sending(data['text'], Bot)
 
     await message.reply(result)
