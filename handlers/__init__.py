@@ -1,1 +1,1 @@
-from . import bot_messages, user_commands, questionaire
+from . import bot_messages, user_commands

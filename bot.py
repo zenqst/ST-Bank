@@ -1,7 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 
-from handlers import bot_messages, user_commands, questionaire
+from handlers import bot_messages, user_commands
 from callbacks import coins
 
 from config_reader import settings
@@ -15,8 +15,8 @@ init_db()
 
 async def scheduled_task(bot: Bot):
     while True:
-        await change_coin('ST', bot)
-        await change_coin('V', bot)
+        await change_coin('st', bot)
+        await change_coin('v', bot)
         await asyncio.sleep(300)
 
 async def main():
@@ -25,7 +25,6 @@ async def main():
 
     dp.include_routers(
         user_commands.router,
-        questionaire.router,
         bot_messages.router,
         coins.router,
     )

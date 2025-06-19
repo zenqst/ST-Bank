@@ -1,13 +1,21 @@
-from aiogram.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton
-)
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters.callback_data import CallbackData
 
-st_buttons = InlineKeyboardMarkup(
+class ActionCallback(CallbackData, prefix="type"):
+    action_type: str
+
+class CurrencyCallback(CallbackData, prefix="cur"):
+    currency: str
+
+class BoxCallback(CallbackData, prefix="box"):
+    type: str
+    amount: None | int 
+
+choose_type_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="➕ Купить", callback_data='buy'),
-            InlineKeyboardButton(text="➖ Продать", callback_data="sell")
+            InlineKeyboardButton(text="➕ Купить", callback_data=ActionCallback(action_type = "buy").pack()),
+            InlineKeyboardButton(text="➖ Продать", callback_data=ActionCallback(action_type = "sell").pack())
         ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
@@ -15,12 +23,11 @@ st_buttons = InlineKeyboardMarkup(
     ]
 )
 
-buy_buttons = InlineKeyboardMarkup(
+choose_currency_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="ST", callback_data='buy_st'),
-            InlineKeyboardButton(text="V", callback_data="buy_v"),
-            InlineKeyboardButton(text='📦', callback_data='buy_box')
+            InlineKeyboardButton(text="ST", callback_data=CurrencyCallback(currency = "st").pack()),
+            InlineKeyboardButton(text="V", callback_data=CurrencyCallback(currency = "v").pack()),
         ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
@@ -28,11 +35,10 @@ buy_buttons = InlineKeyboardMarkup(
     ]
 )
 
-sell_buttons = InlineKeyboardMarkup(
+agree_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="ST", callback_data='sell_st'),
-            InlineKeyboardButton(text="V", callback_data="sell_v")
+            InlineKeyboardButton(text="✅ Подтвердить", callback_data="agree"),
         ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
@@ -40,11 +46,15 @@ sell_buttons = InlineKeyboardMarkup(
     ]
 )
 
-agree_buy_st_buttons = InlineKeyboardMarkup(
+box_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data='agree_buy_st'),
-            InlineKeyboardButton(text="✏️ Изменить", callback_data='edit_buy_st'),
+            InlineKeyboardButton(text="Открыть x1", callback_data=BoxCallback(type = "opening", amount = 1).pack()),
+            InlineKeyboardButton(text="Открыть x3", callback_data=BoxCallback(type = "opening", amount = 3).pack()),
+            InlineKeyboardButton(text="Открыть x10", callback_data=BoxCallback(type = "opening", amount = 10).pack())
+        ],
+        [
+            InlineKeyboardButton(text="➕ Купить", callback_data=ActionCallback(action_type = "buy").pack())
         ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
@@ -52,36 +62,8 @@ agree_buy_st_buttons = InlineKeyboardMarkup(
     ]
 )
 
-agree_sell_st_buttons = InlineKeyboardMarkup(
+cancel_button = InlineKeyboardMarkup(
     inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data='agree_sell_st'),
-            InlineKeyboardButton(text="✏️ Изменить", callback_data='edit_sell_st'),
-        ],
-        [
-            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
-        ]
-    ]
-)
-
-agree_buy_v_buttons = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data='agree_buy_v'),
-            InlineKeyboardButton(text="✏️ Изменить", callback_data='edit_buy_v'),
-        ],
-        [
-            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
-        ]
-    ]
-)
-
-agree_sell_v_buttons = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data='agree_sell_v'),
-            InlineKeyboardButton(text="✏️ Изменить", callback_data='edit_sell_v'),
-        ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
         ]

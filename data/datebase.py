@@ -1,5 +1,7 @@
-from psycopg2 import connect
-from os import getenv
+from aiogram import Router, Bot, F
+from aiogram.types import CallbackQuery, Message
+from aiogram.fsm.context import FSMContext
+
 from dotenv import load_dotenv
 
 import humanize
@@ -7,6 +9,7 @@ import humanize
 from config_reader import st, v
 from data.google_sheets import add_to_table
 from data.db_init import init_db, get_connection
+from keyboards import inline, reply
 
 import random
 
@@ -137,28 +140,33 @@ def get_price(name):
     data = select_data(['curr_price', 'diff_percent'], 'coins', {'name': name})
     return data
 
-def buy_coins(id, username, name, pcs: int):
-    price = get_price(name)
-    price = float(price[0]) * float(pcs)
+async def last_interaction(id: int, username: str, state: FSMContext):
+    data = await state.get_data()
+    currency = data['currency']
+    amount = float(data['amount'])
+
+    price_data = get_price(currency)
+    price = float(price_data[0]) * amount
 
     balance = get_profile(id, username)
+    balance_index = 1 if currency == "st" else 2
+    currency_balance = balance[balance_index]
 
-    currency = name.lower()
-
-    if currency == 'st':
-        new_balance = balance[1]
-    if currency == 'v':
-        new_balance = balance[2]
-
-    if price > balance[0]:
-        return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}₽ (Баланс: {balance[0]}₽)'
-    if price <= 0:
-        return f'❌ <b>Ошибка</b>\n\nВведите число больше 0'
-    else:
+    if data['type'] == 'buy':
+        if price > balance[0]:
+            await state.clear()
+            return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}₽ (Баланс: {balance[0]}₽)'
         update_data('users', {'ruble': balance[0] - price}, {'id': id})
-        update_data('users', {currency: new_balance + int(pcs)}, {'id': id})
+        update_data('users', {currency: currency_balance + int(amount)}, {'id': id})
+        return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{amount}{currency.upper()}</b> за <b>{price}₽</b>'
+    else:
+        if amount > currency_balance:
+            await state.clear()
+            return f'❌ <b>Недостаточно акций</b>\n\nНеобходимо: {amount}{currency.upper()} (Баланс: {currency_balance}{currency.upper()})'
+        update_data('users', {'ruble': balance[0] + price}, {'id': id})
+        update_data('users', {currency: currency_balance - int(amount)}, {'id': id})
+        return f'✅ <b>Успешно!</b>\n\nВы продали <b>{amount}{currency.upper()}</b> за <b>{price}₽</b>'
 
-        return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{pcs}{name}</b> за <b>{price}₽</b>'
     
 def buy_boxes(id, username, pcs: int):
     price = get_price('Box')
@@ -176,31 +184,8 @@ def buy_boxes(id, username, pcs: int):
 
         return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{pcs} 📦</b> за <b>{price}ST</b>'
     
-def sell_coins(id, username, name, pcs: int):
-    price = get_price(name)
-    price = float(price[0]) * float(pcs)
-
-    balance = get_profile(id, username)
-    
-    currency = name.lower()
-
-    if currency == 'st':
-        new_balance = balance[1]
-    if currency == 'v':
-        new_balance = balance[2]
-
-    if float(pcs) > float(new_balance):
-        return f'❌ <b>Недостаточно акций</b>\n\nНеобходимо: {pcs}{name} (Баланс: {new_balance}{name})'
-    if price == 0:
-        return f'❌ <b>Ошибка</b>\n\nВведите число больше 0'
-    else:
-        update_data('users', {'ruble': balance[0] + price}, {'id': id})
-        update_data('users', {currency: new_balance - int(pcs)}, {'id': id})
-
-        return f'✅ <b>Успешно!</b>\n\nВы продали <b>{pcs}{name}</b> за <b>{price}₽</b>'
-    
-async def change_coin(name, bot):
-    coin = globals()[name.lower()]  # Получаем модуль динамически
+async def change_coin(name: str, bot: Bot):
+    coin = globals()[name]  # Получаем модуль динамически
     max_growth = getattr(coin, 'max_growth')
     max_fall = getattr(coin, 'max_fall')
 
@@ -218,29 +203,50 @@ async def change_coin(name, bot):
 
     await add_to_table(name, new_price)
 
-    # with open('text.txt', 'a') as f:
-    #     f.write(f'{name} ({datetime.datetime.now().time()})\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n\n\n')
-
     await bot.send_message(config.admin_id, f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
 
     update_data('coins', {'curr_price': new_price, 'diff_percent': new_diff_percent}, {'name': name})
 
-async def advanced_buy(name, state, message, inline):
-    await state.update_data(pcs=message.text)
+async def advanced_interaction(state: FSMContext, message: Message):
+    await state.update_data(amount=message.text)
     user_id = message.from_user.id
     username = message.from_user.username
 
     data = await state.get_data()
-    price = get_price(name)
-    price = float(price[0]) * float(data['pcs'])
+    currency = data['currency']
+    amount = float(data['amount'])
+
+    price_data = get_price(currency)
+    price = float(price_data[0]) * amount
     balance = get_profile(user_id, username)
 
-    buttons = getattr(inline, f'agree_buy_{name.lower()}_buttons')
+    if not balance:
+        await state.clear()
+        await message.answer("⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.")
+        return
+    if amount <= 0:
+        await state.clear()
+        await message.answer("❌ <b>Ошибка</b>\n\nВведите число больше 0")
+        return
 
-    if balance:
-        await message.answer(f"Для покупки <b>{data['pcs']}{name}</b> потребуется <b>{price}₽</b> (Ваш баланс: <b>{balance[0]}₽</b>)\n\nПодтвердите или отмените покупку кнопками ниже.", reply_markup=buttons)
+    balance_index = 1 if currency == "st" else 2
+    currency_balance = balance[balance_index]
+
+    if data['type'] == 'buy':
+        if balance[0] < price:
+            await state.clear()
+            await message.answer("<b>Недостаточно средств для совершения транзакции!</b>", reply_markup=reply.main)
+        else:
+            remaining = balance[0] - price
+            await message.answer(f"После покупки <b>{amount}{currency.upper()}</b> на балансе останется <b>~{remaining:.2f}₽</b>\n\nПодтвердите покупку кнопками ниже.", reply_markup=inline.agree_buttons)
     else:
-        await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
+        if currency_balance < amount:
+            await state.clear()
+            await message.answer("<b>Недостаточно средств для совершения транзакции!</b>", reply_markup=reply.main)
+        else:
+            remaining = balance[0] + price
+            await message.answer(f"После продажи <b>{amount}{currency.upper()}</b> у вас будет <b>~{remaining:.2f}₽</b>\n\nПодтвердите покупку кнопками ниже.", reply_markup=inline.agree_buttons)
+
 
 async def advanced_buy_boxes(name, state, message, inline):
     await state.update_data(pcs=message.text)
@@ -256,33 +262,6 @@ async def advanced_buy_boxes(name, state, message, inline):
         await message.answer(f"Для покупки <b>{data['pcs']} 📦</b> потребуется <b>{price}ST</b> (Ваш баланс: <b>{balance[1]}ST</b>)\n\nПодтвердите или отмените покупку кнопками ниже.", reply_markup=inline.agree_buy_box_buttons)
     else:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
-
-async def advanced_sell(name, state, message, inline):
-    await state.update_data(pcs=message.text)
-    user_id = message.from_user.id
-    username = message.from_user.username
-
-    data = await state.get_data()
-    price = get_price(name)
-    price = float(price[0]) * float(data['pcs'])
-    balance = get_profile(user_id, username)
-
-    currency = name.lower()
-
-    if currency == 'st':
-        new_balance = balance[1]
-    if currency == 'v':
-        new_balance = balance[2]
-
-    price += float(balance[0])
-
-    buttons = getattr(inline, f'agree_sell_{name.lower()}_buttons')
-
-    if balance:
-        await message.answer(f"После продажи <b>{data['pcs']}{name}</b> у вас будет <b>{price}₽</b> (Текущий баланс: <b>{new_balance}{name}</b>)\n\nПодтвердите или отмените покупку кнопками ниже.", reply_markup=buttons)
-    else:
-        await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
-
 
 async def open_box(id, username, message):
     balance = get_profile(id, username)

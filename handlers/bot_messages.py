@@ -38,9 +38,9 @@ async def open_box_func(message: Message):
 
 @router.message(F.text.lower().in_(["📊 торговать"]))
 async def torg(message: Message):
-    data_st = get_price('ST')
-    data_v = get_price('V')
-    data_box = get_price('Box')
+    data_st = get_price('st')
+    data_v = get_price('v')
+    data_box = get_price('box')
 
     if float(data_st[1]) >= 0:
         percent_st = f'+{data_st[1]}%'
@@ -52,7 +52,7 @@ async def torg(message: Message):
     else:
         percent_v = f'{data_v[1]}%'
 
-    await message.answer(f'<b>Текущие цены:</b>\n1ST = {data_st[0]}₽ ({hu_number(data_st[0])}) <i>({percent_st})</i>\n1V = {data_v[0]}₽ ({hu_number(data_v[0])}) <i>({percent_v})</i>\n1 📦 = {data_box[0]}ST ({hu_number(data_box[0])})', reply_markup=inline.st_buttons)
+    await message.answer(f'<b>Текущие цены:</b>\n1ST = {data_st[0]}₽ ({hu_number(data_st[0])}) <i>({percent_st})</i>\n1V = {data_v[0]}₽ ({hu_number(data_v[0])}) <i>({percent_v})</i>\n1 📦 = {data_box[0]}ST ({hu_number(data_box[0])})', reply_markup=inline.choose_type_buttons)
 
 # @router.message()
 # async def echo(message: Message):
