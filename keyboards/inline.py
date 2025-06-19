@@ -54,7 +54,7 @@ box_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text="Открыть x10", callback_data=BoxCallback(type = "opening", amount = 10).pack())
         ],
         [
-            InlineKeyboardButton(text="➕ Купить", callback_data=ActionCallback(action_type = "buy").pack())
+            InlineKeyboardButton(text="➕ Купить", callback_data=BoxCallback(type = "buy", amount=None).pack())
         ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")

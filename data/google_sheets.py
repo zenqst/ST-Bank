@@ -13,12 +13,12 @@ httpAuth = credentials.authorize(httplib2.Http())
 service = discovery.build('sheets', 'v4', http=httpAuth)
 
 async def add_to_table(name, value):
-    if name == 'ST':
+    if name == 'st':
         column = 'A'
-    elif name == 'V':
+    elif name == 'v':
         column = 'B'
     else:
-        print("Invalid name provided. Please provide 'ST' or 'V'.")
+        print("Google Sheets | Неизвестное имя")
         return
 
     # Получаем текущие значения в столбце

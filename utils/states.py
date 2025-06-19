@@ -5,9 +5,5 @@ class Interaction(StatesGroup):
     currency = State()
     type = State()
 
-
-class Buy_Boxes(StatesGroup):
-    pcs = State()
-
 class Sending_Text(StatesGroup):
     text = State()
