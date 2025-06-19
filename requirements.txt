@@ -1,10 +1,9 @@
-aiogram==3.6.0
-Flask==3.0.3
-google_api_python_client==2.130.0
+aiogram==3.20.0.post0
+Flask==3.1.1
+google_api_python_client==2.173.0
 httplib2==0.22.0
-humanize==4.9.0
+humanize==4.12.3
 oauth2client==4.1.3
-psycopg2==2.9.9
-pydantic==2.7.1
-pydantic_settings==2.2.1
-python-dotenv==1.0.1
+pydantic==2.11.7
+pydantic_settings==2.9.1
+python-dotenv==1.1.0
