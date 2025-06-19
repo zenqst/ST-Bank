@@ -4,14 +4,14 @@ from pydantic import SecretStr
 
 class Settings(BaseSettings):
     bot_token: SecretStr
-    db_password: SecretStr
+
     model_config: SettingsConfigDict = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8"
     )
 
 class Config():
-    version = 'v0.5.5.2',
+    version = 'v0.6',
     admin_id = 980316238
 
 class ST():

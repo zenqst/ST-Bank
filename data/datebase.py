@@ -6,6 +6,7 @@ import humanize
 
 from config_reader import st, v
 from data.google_sheets import add_to_table
+from data.db_init import init_db, get_connection
 
 import random
 
@@ -13,12 +14,9 @@ from config_reader import config
 import json
 
 load_dotenv()
+init_db()
 
 # img = open('data/box_open.gif', 'rb')
-
-dbname = 'postgres'
-user = 'postgres.sbcrsartgfmzvwuiyqdr'
-host = 'aws-0-eu-central-1.pooler.supabase.com'
 
 not_register = '⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.'
 
@@ -26,21 +24,19 @@ def select_data(rows: list, table: str, identifiers: dict):
     """
     >> select_data(['text'], 'test', {'ids': 5})
 
-    () SELECT text FROM test WHERE ids = %s
-
+    () SELECT text FROM test WHERE ids = ?
     << Тест-тест!
     """
-
-    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    con = get_connection()
     cur = con.cursor()
 
-    if identifiers:  # Проверяем, есть ли какие-либо идентификаторы
-        identifiers_str = ' AND '.join([f"{key} = %s" for key in identifiers.keys()])
+    if identifiers:
+        identifiers_str = ' AND '.join([f"{key} = ?" for key in identifiers.keys()])
         query = f"SELECT {', '.join(rows)} FROM {table} WHERE {identifiers_str}"
         values = tuple(identifiers.values())
     else:
         query = f"SELECT {', '.join(rows)} FROM {table}"
-        values = None
+        values = ()
 
     cur.execute(query, values)
     result = cur.fetchone()
@@ -57,18 +53,17 @@ def insert_data(table: str, values: dict):
     """
     >> db_insert('test', {'text': 'Тест-тест!', 'ids': 5})
 
-    () INSERT INTO test (text, ids) VALUES (%s, %s)
+    () INSERT INTO test (text, ids) VALUES (?, ?)
     () Появилась запись Тест-тест!
     """
-
-    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    con = get_connection()
     cur = con.cursor() 
 
     columns = list(values.keys())
     values_list = list(values.values())
 
     columns_str = ', '.join(columns)
-    placeholders = ', '.join(['%s']*len(values_list))
+    placeholders = ', '.join(['?']*len(values_list))
     query = f"INSERT INTO {table} ({columns_str}) VALUES ({placeholders})"
 
     cur.execute(query, values_list)
@@ -81,15 +76,14 @@ def update_data(table: str, values: dict, identifiers: dict):
     """
     >> db_update('test', {'text': 'Тест'}, {'ids': 5})
 
-    () UPDATE test SET text = %s WHERE ids = %s
+    () UPDATE test SET text = ? WHERE ids = ?
     () Тест-тест! -> Тест
     """
-
-    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    con = get_connection()
     cur = con.cursor()
 
-    set_values_str = ', '.join([f"{key} = %s" for key in values.keys()])
-    identifiers_str = ' AND '.join([f"{key} = %s" for key in identifiers.keys()])
+    set_values_str = ', '.join([f"{key} = ?" for key in values.keys()])
+    identifiers_str = ' AND '.join([f"{key} = ?" for key in identifiers.keys()])
     query = f"UPDATE {table} SET {set_values_str} WHERE {identifiers_str}"
 
     query_values = list(values.values()) + list(identifiers.values())
@@ -100,18 +94,18 @@ def update_data(table: str, values: dict, identifiers: dict):
     cur.close()
     con.close()
 
+
 def delete_data(table: str, identifiers: dict):
     """
     >> db_delete('test', {'ids': 5})
 
-    () DELETE FROM test WHERE ids = %s
+    () DELETE FROM test WHERE ids = ?
     () Запись удалена
     """
-
-    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    con = get_connection()
     cur = con.cursor() 
 
-    identifiers_str = ' AND '.join([f"{key} = %s" for key in identifiers.keys()])
+    identifiers_str = ' AND '.join([f"{key} = ?" for key in identifiers.keys()])
     query = f"DELETE FROM {table} WHERE {identifiers_str}"
     
     values = tuple(identifiers.values())
@@ -121,6 +115,7 @@ def delete_data(table: str, identifiers: dict):
 
     cur.close()
     con.close()
+
 
 def register(id, username):
     if (select_data(['username'], 'users', {'id': id})):
@@ -316,19 +311,17 @@ async def open_box(id, username, message):
         'Обычная': 10
     }
 
-    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    con = get_connection()
     cur = con.cursor()
 
     query = "SELECT id, name, rarity FROM loot"
     cur.execute(query)
     all_items = cur.fetchall()
 
-    query = "SELECT loot FROM users WHERE id = %s"
+    query = "SELECT loot FROM users WHERE id = ?"
     cur.execute(query, (id,))
-    user_loot = cur.fetchone()[0]
-
-    if user_loot is None:
-        user_loot = []
+    res = cur.fetchone()
+    user_loot = res[0] if res and res[0] else []
 
     if not balance:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
@@ -343,26 +336,39 @@ async def open_box(id, username, message):
 
         rarity_icon = rarities_icons[selected_item[2]]
 
-        if any(item['id'] == item_id and item['exist'] for item in user_loot):
+        if any(item['id'] == item_id and item.get('exist', False) for item in user_loot):
             price = replay_compensation[selected_item[2]]
             update_data('users', {'st': balance[1] + price}, {'id': id})
-            await message.answer(f"Вы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\nПредмет-повторка: +{price}ST\n\nТекущий баланс: {balance[1] + price}ST и {balance[3] - 1} 📦")
+            await message.answer(
+                f"Вы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n"
+                f"Предмет-повторка: +{price}ST\n\nТекущий баланс: {balance[1] + price}ST и {balance[3] - 1} 📦"
+            )
         else:
             user_loot.append({'id': item_id, 'exist': True})
 
             # Обновляем JSONB-строку в базе данных
-            update_query = "UPDATE users SET loot = %s WHERE id = %s"
+            update_query = "UPDATE users SET loot = ? WHERE id = ?"
             cur.execute(update_query, (json.dumps(user_loot), id))
             con.commit()
 
             refund_box = random.randint(0, 1)
 
             if refund_box == 0:
-                await message.answer(f"<b>Удача на вашей стороне! Бокс не потратился при открытии</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3]} 📦")
+                await message.answer(
+                    f"<b>Удача на вашей стороне! Бокс не потратился при открытии</b>\n"
+                    f"Вы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\n"
+                    f"Текущий баланс: {balance[3]} 📦"
+                )
+                cur.close()
+                con.close()
                 return
 
-            await message.answer(f"<b>Поздравляем!</b>\nВы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\nТекущий баланс: {balance[3] - 1} 📦")
-        
+            await message.answer(
+                f"<b>Поздравляем!</b>\n"
+                f"Вы получили <b>{selected_item[1]}</b> <i>({rarity_icon} {selected_item[2]})</i>\n\n"
+                f"Текущий баланс: {balance[3] - 1} 📦"
+            )
+
         update_data('users', {'boxes': int(balance[3]) - 1}, {'id': id})
 
     cur.close()
@@ -385,16 +391,17 @@ async def items(id, username, call, inline):
         'Обычная': 50
     }
 
-    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    con = get_connection()
     cur = con.cursor()
 
     query = "SELECT id, name, rarity FROM loot"
     cur.execute(query)
     all_items = cur.fetchall()
 
-    query = "SELECT loot FROM users WHERE id = %s"
+    query = "SELECT loot FROM users WHERE id = ?"
     cur.execute(query, (id,))
-    user_loot = cur.fetchone()[0]
+    res = cur.fetchone()
+    user_loot = res[0] if res and res[0] else []
 
     text = ""
     for rarity, chance in rarities_chances.items():
@@ -402,13 +409,13 @@ async def items(id, username, call, inline):
         available_items = [item for item in all_items if item[2] == rarity]
         item_count = len(available_items)
         if user_loot:
-            count_with_user = len([item for item in available_items if any(user_item['id'] == item[0] and user_item['exist'] for user_item in user_loot)])
+            count_with_user = len([item for item in available_items if any(user_item['id'] == item[0] and user_item.get('exist', False) for user_item in user_loot)])
             if count_with_user == 0:
                 text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
             else:
                 text += f"<b>{count_with_user}</b> из {item_count}\n"
                 for item in available_items:
-                    if any(user_item['id'] == item[0] and user_item['exist'] for user_item in user_loot):
+                    if any(user_item['id'] == item[0] and user_item.get('exist', False) for user_item in user_loot):
                         text += f"{item[1]}\n"
         else:
             text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
@@ -431,7 +438,7 @@ def hu_number(number):
 
 async def sending(text, bot):
     # Подключаемся к базе данных
-    con = connect(dbname=dbname, user=user, password=getenv('DB_PASSWORD'), host=host)
+    con = get_connection()
     cur = con.cursor()
 
     # Извлекаем всех пользователей из таблицы users
@@ -451,7 +458,7 @@ async def sending(text, bot):
         try:
             await bot.send_message(user_id, text)
             success_count += 1
-        except Exception as e:
+        except Exception:
             error_count += 1
 
     return f"Успешно отправлено: {success_count}\nНе удалось отправить: {error_count}"

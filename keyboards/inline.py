@@ -109,7 +109,7 @@ profile_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text='🗄 График изменений валют', url='https://docs.google.com/spreadsheets/d/13eaUPw-ceQUmeU31WwC4MiU4kM7-RCwPgbzco-xCuAA/edit?usp=sharing')
         ],
         [
-            InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenq_st")
+            InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenqst")
         ]
     ]
 )
@@ -123,7 +123,7 @@ items_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text='🗄 График изменений валют', url='https://docs.google.com/spreadsheets/d/13eaUPw-ceQUmeU31WwC4MiU4kM7-RCwPgbzco-xCuAA/edit?usp=sharing')
         ],
         [
-            InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenq_st")
+            InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenqst")
         ]
     ]
 )
