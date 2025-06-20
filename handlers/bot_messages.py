@@ -3,7 +3,7 @@ from aiogram.types import Message
 
 from keyboards import reply, inline, builders, fabrics
 
-from config_reader import config
+from config_reader import config, v
 
 from data.datebase import get_profile, get_price, open_box, hu_number
 
@@ -54,6 +54,10 @@ async def torg(message: Message):
         percent_v = f'{data_v[1]}%'
 
     await message.answer(f'<b>Текущие цены:</b>\n1ST = {data_st[0]}₽ ({hu_number(data_st[0])}) <i>({percent_st})</i>\n1V = {data_v[0]}₽ ({hu_number(data_v[0])}) <i>({percent_v})</i>', reply_markup=inline.choose_type_buttons)
+
+@router.message(F.text.lower().in_(["🆕 донаты"]))
+async def donates(message: Message):
+    await message.answer(f'☹️ Провалились акции? Не хватает ST на открытие боксов?\n😇 ST Bank предлагает <b>новое решение!</b> Преобразуйте свои рубли в валюту\n\n<b>{v.in_irl_rub} IRL RUB = 1V</b>\n\n', reply_markup=inline.donate_buttons)
 
 # @router.message()
 # async def echo(message: Message):

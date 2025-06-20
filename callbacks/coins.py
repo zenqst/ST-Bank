@@ -2,8 +2,9 @@ from aiogram import Router, Bot, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
-from utils.states import Interaction
+from utils.states import Interaction, Donate
 from data.datebase import advanced_interaction, last_interaction, open_box, get_profile, get_price, items, hu_number
+from callbacks.donations import send_invoice_handler
 
 from keyboards import inline, reply
 from keyboards.inline import ActionCallback, CurrencyCallback, BoxCallback
@@ -17,7 +18,6 @@ async def action_type_handler(call: CallbackQuery, callback_data: ActionCallback
         await state.update_data(type=callback_data.action_type)
         await bot.answer_callback_query(call.id)
         await bot.send_message(call.from_user.id, 'Выберите валюту:', reply_markup=inline.choose_currency_buttons)
-
 
 @router.callback_query(CurrencyCallback.filter())
 async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback, bot: Bot, state: FSMContext):
@@ -85,6 +85,12 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
         await call.message.delete()
         await bot.send_message(call.from_user.id, '✅ <b>Транзакция отменена</b>', reply_markup=reply.main)
 
+    if call.data == "donate":
+        await state.set_state(Donate.amount)
+        await bot.answer_callback_query(call.id)
+
+        await call.message.edit_text('❓ <b>Введите кол-во валюты, которое вы хотите приобрести</b>', reply_markup=inline.cancel_button)
+
     if call.data == 'items':
         await bot.answer_callback_query(call.id)
         await items(user_id, username, call, inline)
@@ -94,5 +100,9 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
         await call.message.edit_text(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]} ({hu_number(data[0])})\n<b>ST:</b> {data[1]} ({hu_number(data[1])})\n<b>V:</b> {data[2]} ({hu_number(data[2])})\n📦: {data[3]} ({hu_number(data[3])})', reply_markup=inline.profile_buttons)
 
 @router.message(Interaction.amount)
-async def amount_handler(message: Message, state: FSMContext):
+async def interaction_amount_handler(message: Message, state: FSMContext):
     await advanced_interaction(state, message)
+
+@router.message(Donate.amount)
+async def donate_amount_handler(message: Message, state: FSMContext):
+    await send_invoice_handler(state, message)

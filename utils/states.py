@@ -5,5 +5,8 @@ class Interaction(StatesGroup):
     currency = State()
     type = State()
 
+class Donate(StatesGroup):
+    amount = State()
+
 class Sending_Text(StatesGroup):
     text = State()

@@ -1,8 +1,10 @@
 import asyncio
 from aiogram import Bot, Dispatcher
+from aiogram.client.bot import DefaultBotProperties
+from aiogram.enums import ParseMode
 
 from handlers import bot_messages, user_commands
-from callbacks import coins
+from callbacks import coins, donations
 
 from config_reader import settings
 
@@ -20,13 +22,14 @@ async def scheduled_task(bot: Bot):
         await asyncio.sleep(60)
 
 async def main():
-    bot = Bot(settings.bot_token.get_secret_value(), parse_mode="HTML")
+    bot = Bot(settings.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
 
     dp.include_routers(
         user_commands.router,
         bot_messages.router,
         coins.router,
+        donations.router
     )
 
     scheduled_task_task = asyncio.create_task(scheduled_task(bot))

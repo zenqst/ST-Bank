@@ -23,6 +23,7 @@ class V():
     max_growth = 0.45
     max_fall = 0.45
     min_price = 500
+    in_irl_rub = 100
 
 
 settings = Settings()

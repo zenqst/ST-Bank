@@ -70,11 +70,10 @@ cancel_button = InlineKeyboardMarkup(
     ]
 )
 
-agree_buy_box_buttons = InlineKeyboardMarkup(
+donate_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data='agree_buy_box'),
-            InlineKeyboardButton(text="✏️ Изменить", callback_data='edit_buy_box'),
+            InlineKeyboardButton(text="💰 Купить валюту", callback_data="donate")
         ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")

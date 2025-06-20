@@ -1,5 +1,7 @@
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
+from aiogram.fsm.context import FSMContext
 
+from config_reader import v
 
 def calc():
     items = [
@@ -25,3 +27,11 @@ def profile(text: str | list):
     
     [builder.button(text=txt) for txt in text]
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
+
+async def payment_keyboard(state: FSMContext):
+    data = await state.get_data()
+    price = int(data['amount']) * v.in_irl_rub
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text=f"Оплатить {price} RUB", pay=True)
+    return builder.as_markup()
