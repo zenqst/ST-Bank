@@ -23,7 +23,7 @@ async def action_type_handler(call: CallbackQuery, callback_data: ActionCallback
 async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
     username = call.from_user.username
-    balance = get_profile(user_id, username)
+    balance = await get_profile(user_id, username)
 
     data = await state.get_data()
     await state.set_state(Interaction.currency)
@@ -33,11 +33,11 @@ async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback,
     await state.update_data(currency=currency)
 
     if data['type'] == "buy":
-        text = f"Введите количество {currency.upper()}, которое вы хотите приобрести (Баланс: {balance[0]}₽ ({hu_number(balance[0])}))"
+        text = f"Введите количество {currency.upper()}, которое вы хотите приобрести (Баланс: {balance[0]}₽ ({await hu_number(balance[0])}))"
     else:
         balance_index = 1 if currency == "ST" else 2
         currency_balance = balance[balance_index]
-        text = f"Введите количество {currency.upper()}, которое вы хотите продать (Баланс: {currency_balance}{currency.upper()} ({hu_number(balance[0])}))"
+        text = f"Введите количество {currency.upper()}, которое вы хотите продать (Баланс: {currency_balance}{currency.upper()} ({await hu_number(balance[0])}))"
 
     await state.set_state(Interaction.amount)
     await call.message.edit_text(text, reply_markup=inline.cancel_button)
@@ -46,7 +46,7 @@ async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback,
 async def boxes_handler(call: CallbackQuery, callback_data: BoxCallback, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
     username = call.from_user.username
-    balance = get_profile(user_id, username)
+    balance = await get_profile(user_id, username)
     currency_balance = balance[3]
 
     if callback_data.type == "opening":
@@ -71,7 +71,7 @@ async def boxes_handler(call: CallbackQuery, callback_data: BoxCallback, bot: Bo
 async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
     username = call.from_user.username
-    balance = get_profile(user_id, username)
+    balance = await get_profile(user_id, username)
 
     if call.data == "agree":
         data = await state.get_data()
@@ -96,8 +96,8 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
         await items(user_id, username, call, inline)
 
     if call.data == 'return_profile':
-        data = get_profile(user_id, username)
-        await call.message.edit_text(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]} ({hu_number(data[0])})\n<b>ST:</b> {data[1]} ({hu_number(data[1])})\n<b>V:</b> {data[2]} ({hu_number(data[2])})\n📦: {data[3]} ({hu_number(data[3])})', reply_markup=inline.profile_buttons)
+        data = await get_profile(user_id, username)
+        await call.message.edit_text(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]} ({await hu_number(data[0])})\n<b>ST:</b> {data[1]} ({await hu_number(data[1])})\n<b>V:</b> {data[2]} ({await hu_number(data[2])})\n📦: {data[3]} ({await hu_number(data[3])})', reply_markup=inline.profile_buttons)
 
 @router.message(Interaction.amount)
 async def interaction_amount_handler(message: Message, state: FSMContext):

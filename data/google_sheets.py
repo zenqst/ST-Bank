@@ -45,4 +45,4 @@ async def add_to_table(name, value):
         }
     ).execute()
 
-    print(f"Data '{value}' added to column '{column}' at row {first_empty_cell_index}")
+#    print(f"Data '{value}' added to column '{column}' at row {first_empty_cell_index}")

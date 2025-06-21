@@ -19,7 +19,7 @@ async def start(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
 
-    if register(user_id, username):
+    if await register(user_id, username):
         reply_markup = reply.main
     else:
         reply_markup = reply.register

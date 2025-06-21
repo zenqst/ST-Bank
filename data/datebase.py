@@ -23,7 +23,7 @@ init_db()
 
 not_register = '⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.'
 
-def select_data(rows: list, table: str, identifiers: dict):
+async def select_data(rows: list, table: str, identifiers: dict):
     """
     >> select_data(['text'], 'test', {'ids': 5})
 
@@ -52,7 +52,7 @@ def select_data(rows: list, table: str, identifiers: dict):
     else:
         return result
 
-def insert_data(table: str, values: dict):
+async def insert_data(table: str, values: dict):
     """
     >> db_insert('test', {'text': 'Тест-тест!', 'ids': 5})
 
@@ -75,7 +75,7 @@ def insert_data(table: str, values: dict):
     cur.close()
     con.close()
 
-def update_data(table: str, values: dict, identifiers: dict):
+async def update_data(table: str, values: dict, identifiers: dict):
     """
     >> db_update('test', {'text': 'Тест'}, {'ids': 5})
 
@@ -98,7 +98,7 @@ def update_data(table: str, values: dict, identifiers: dict):
     con.close()
 
 
-def delete_data(table: str, identifiers: dict):
+async def delete_data(table: str, identifiers: dict):
     """
     >> db_delete('test', {'ids': 5})
 
@@ -120,29 +120,29 @@ def delete_data(table: str, identifiers: dict):
     con.close()
 
 
-def register(id, username):
-    if (select_data(['username'], 'users', {'id': id})):
+async def register(id, username):
+    if (await select_data(['username'], 'users', {'id': id})):
         return True
     if not username:
         return False
     else:
-        insert_data('users', {'id': id, 'username': username, 'ruble': 2000, 'st': 10, 'v': 5})
+        await insert_data('users', {'id': id, 'username': username, 'ruble': 2000, 'st': 10, 'v': 5})
         return False
     
-def get_profile(id, username):
+async def get_profile(id, username):
     """
     Передаём айди и никнейм
     В ответ получаем формат из: ruble[0], st[1], v[2], boxes[3]
     """
 
-    if (register(id, username)):
-        data = select_data(['ruble', 'st', 'v', 'boxes'], 'users', {'id': id})
+    if (await register(id, username)):
+        data = await select_data(['ruble', 'st', 'v', 'boxes'], 'users', {'id': id})
         return data
     else:
         return False
 
 async def get_price(name):
-    data = select_data(['curr_price', 'diff_percent'], 'coins', {'name': name})
+    data = await select_data(['curr_price', 'diff_percent'], 'coins', {'name': name})
     return data
 
 async def last_interaction(id: int, username: str, state: FSMContext):
@@ -153,7 +153,7 @@ async def last_interaction(id: int, username: str, state: FSMContext):
     price_data = await get_price(currency)
     price = float(price_data[0]) * amount
 
-    balance = get_profile(id, username)
+    balance = await get_profile(id, username)
 
     if currency == "st":
         balance_index = 1
@@ -168,22 +168,22 @@ async def last_interaction(id: int, username: str, state: FSMContext):
         if price > balance[1]:
             await state.clear()
             return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}ST (Баланс: {balance[1]}ST)'
-        update_data('users', {'st': balance[1] - price}, {'id': id})
-        update_data('users', {'boxes': currency_balance + int(amount)}, {'id': id})
+        await update_data('users', {'st': balance[1] - price}, {'id': id})
+        await update_data('users', {'boxes': currency_balance + int(amount)}, {'id': id})
         return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{amount} 📦</b> за <b>{price}ST</b>'
     elif data['type'] == 'buy':
         if price > balance[0]:
             await state.clear()
             return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}₽ (Баланс: {balance[0]}₽)'
-        update_data('users', {'ruble': balance[0] - price}, {'id': id})
-        update_data('users', {currency: currency_balance + int(amount)}, {'id': id})
+        await update_data('users', {'ruble': balance[0] - price}, {'id': id})
+        await update_data('users', {currency: currency_balance + int(amount)}, {'id': id})
         return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{amount}{currency.upper()}</b> за <b>{price}₽</b>'
     else:
         if amount > currency_balance:
             await state.clear()
             return f'❌ <b>Недостаточно акций</b>\n\nНеобходимо: {amount}{currency.upper()} (Баланс: {currency_balance}{currency.upper()})'
-        update_data('users', {'ruble': balance[0] + price}, {'id': id})
-        update_data('users', {currency: currency_balance - int(amount)}, {'id': id})
+        await update_data('users', {'ruble': balance[0] + price}, {'id': id})
+        await update_data('users', {currency: currency_balance - int(amount)}, {'id': id})
         return f'✅ <b>Успешно!</b>\n\nВы продали <b>{amount}{currency.upper()}</b> за <b>{price}₽</b>'
 
 async def change_coin(name: str, bot: Bot):
@@ -201,13 +201,14 @@ async def change_coin(name: str, bot: Bot):
     if float(new_price) <= float(getattr(coin, 'min_price')):
         new_price = float(getattr(coin, 'min_price')) + float(random.randint(0, 100))
 
-    print(f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
+    # print(f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
 
     await add_to_table(name, new_price)
 
-    await bot.send_message(config.admin_id, f'{name}\nЦена до: {data[0]}\nЦена после: {new_price}\nПроцент: {new_diff_percent}\n')
+    if name == "v":
+        await bot.send_message(config.admin_id, f'✅ <b>Цена успешно изменена!</b>')
 
-    update_data('coins', {'curr_price': new_price, 'diff_percent': new_diff_percent}, {'name': name})
+    await update_data('coins', {'curr_price': new_price, 'diff_percent': new_diff_percent}, {'name': name})
 
 async def advanced_interaction(state: FSMContext, message: Message):
     await state.update_data(amount=message.text)
@@ -220,7 +221,7 @@ async def advanced_interaction(state: FSMContext, message: Message):
 
     price_data = await get_price(currency)
     price = float(price_data[0]) * amount
-    balance = get_profile(user_id, username)
+    balance = await get_profile(user_id, username)
 
     if not balance:
         await state.clear()
@@ -265,7 +266,7 @@ async def advanced_interaction(state: FSMContext, message: Message):
             await message.answer(f"После продажи <b>{amount}{currency.upper()}</b> у вас будет <b>~{remaining:.2f}₽</b>\n\nПодтвердите покупку кнопками ниже.", reply_markup=inline.agree_buttons)
 
 async def open_box(id, username, message: Message, amount: int = 1):
-    balance = get_profile(id, username)
+    balance = await get_profile(id, username)
 
     rarities_icons = {
         'Легендарная': '🟡',
@@ -351,7 +352,7 @@ async def open_box(id, username, message: Message, amount: int = 1):
         boxes_left -= 1
 
     # Обновляем финальный баланс
-    update_data('users', {'st': st_balance, 'boxes': boxes_left}, {'id': id})
+    await update_data('users', {'st': st_balance, 'boxes': boxes_left}, {'id': id})
 
     # Сортировка предметов по редкости
     obtained_items.sort(key=lambda x: rarities_order.index(x[0]))
@@ -427,7 +428,7 @@ async def items(id, username, call, inline):
 
     return await call.message.edit_text(text, reply_markup=inline.items_buttons)
 
-def hu_number(number):
+async def hu_number(number):
     suffix = humanize.intword(number)
     parts = suffix.split()
     if len(parts) == 2:

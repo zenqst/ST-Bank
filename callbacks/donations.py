@@ -32,10 +32,10 @@ async def process_successful_payment(message: Message, state: FSMContext):
 
     user_id = message.from_user.id
     username = message.from_user.username
-    balance = get_profile(user_id, username)
+    balance = await get_profile(user_id, username)
 
     # 💾 Увеличиваем баланс на amount
-    update_data("users", {"v": balance[2] + amount})
+    await update_data("users", {"v": balance[2] + amount})
 
     await state.clear()
     await message.answer(f"<b>✅ Оплата прошла успешно!</b>\n\nНа счёт добавлено {amount}V")
