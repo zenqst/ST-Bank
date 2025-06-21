@@ -131,7 +131,8 @@ def register(id, username):
     
 def get_profile(id, username):
     """
-    В ответ получаем формат из: ruble [0], st [1], v [2], boxes [3]
+    Передаём айди и никнейм
+    В ответ получаем формат из: ruble[0], st[1], v[2], boxes[3]
     """
 
     if (register(id, username)):

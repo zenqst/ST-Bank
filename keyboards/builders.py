@@ -34,4 +34,6 @@ async def payment_keyboard(state: FSMContext):
 
     builder = InlineKeyboardBuilder()
     builder.button(text=f"Оплатить {price} RUB", pay=True)
+    builder.button(text="❌ Отменить", callback_data="cancel")
+    builder.adjust(1, 1)
     return builder.as_markup()
