@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 from utils.states import Interaction, Donate
-from data.datebase import advanced_interaction, last_interaction, open_box, get_profile, get_price, items, hu_number
+from data.datebase import advanced_interaction, last_interaction, open_box, get_profile, get_price, items
 from callbacks.donations import send_invoice_handler
 
 from keyboards import inline, reply
@@ -33,11 +33,11 @@ async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback,
     await state.update_data(currency=currency)
 
     if data['type'] == "buy":
-        text = f"Введите количество {currency.upper()}, которое вы хотите приобрести (Баланс: {balance[0]}₽ ({await hu_number(balance[0])}))"
+        text = f"Введите количество {currency.upper()}, которое вы хотите приобрести (Баланс: {balance[0]}₽)"
     else:
         balance_index = 1 if currency == "ST" else 2
         currency_balance = balance[balance_index]
-        text = f"Введите количество {currency.upper()}, которое вы хотите продать (Баланс: {currency_balance}{currency.upper()} ({await hu_number(balance[0])}))"
+        text = f"Введите количество {currency.upper()}, которое вы хотите продать (Баланс: {currency_balance}{currency.upper()})"
 
     await state.set_state(Interaction.amount)
     await call.message.edit_text(text, reply_markup=inline.cancel_button)
@@ -97,7 +97,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
     if call.data == 'return_profile':
         data = await get_profile(user_id, username)
-        await call.message.edit_text(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]} ({await hu_number(data[0])})\n<b>ST:</b> {data[1]} ({await hu_number(data[1])})\n<b>V:</b> {data[2]} ({await hu_number(data[2])})\n📦: {data[3]} ({await hu_number(data[3])})', reply_markup=inline.profile_buttons)
+        await call.message.edit_text(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]}\n<b>ST:</b> {data[1]}\n<b>V:</b> {data[2]}\n📦: {data[3]}', reply_markup=inline.profile_buttons)
 
 @router.message(Interaction.amount)
 async def interaction_amount_handler(message: Message, state: FSMContext):

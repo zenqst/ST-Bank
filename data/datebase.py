@@ -196,7 +196,7 @@ async def change_coin(name: str, bot: Bot):
     data = await get_price(name)
 
     new_price = round(data[0] + data[0] * random_percent, 2)
-    new_diff_percent = random_percent * 100
+    new_diff_percent = round(random_percent * 100, 2)
 
     if float(new_price) <= float(getattr(coin, 'min_price')):
         new_price = float(getattr(coin, 'min_price')) + float(random.randint(0, 100))
@@ -427,15 +427,6 @@ async def items(id, username, call, inline):
     con.close()
 
     return await call.message.edit_text(text, reply_markup=inline.items_buttons)
-
-async def hu_number(number):
-    suffix = humanize.intword(number)
-    parts = suffix.split()
-    if len(parts) == 2:
-        return parts[0] + parts[1][0].upper()
-    elif len(parts) == 3:
-        return parts[0] + parts[2][0].upper()
-    return parts[0]
 
 async def sending(text, bot):
     # Подключаемся к базе данных

@@ -4,8 +4,7 @@ from aiogram.types import Message
 from keyboards import reply, inline, builders, fabrics
 
 from config_reader import config, v
-
-from data.datebase import get_profile, get_price, open_box, hu_number
+from data.datebase import get_profile, get_price, open_box
 
 router = Router()
 
@@ -25,7 +24,7 @@ async def profile(message: Message):
     data = await get_profile(user_id, username)
 
     if data:
-        await message.answer(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]} ({await hu_number(data[0])})\n<b>ST:</b> {data[1]} ({await hu_number(data[1])})\n<b>V:</b> {data[2]} ({hu_number(data[2])})\n📦: {data[3]} ({hu_number(data[3])})', reply_markup=inline.profile_buttons)
+        await message.answer(f'📋 Профиль пользователя @{username}\n\n<b>ID:</b> {user_id}\n<b>Рубли:</b> {data[0]}\n<b>ST:</b> {data[1]}\n<b>V:</b> {data[2]}\n📦: {data[3]}', reply_markup=inline.profile_buttons)
     else:
         await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
 
@@ -53,7 +52,7 @@ async def torg(message: Message):
     else:
         percent_v = f'{data_v[1]}%'
 
-    await message.answer(f'<b>Текущие цены:</b>\n1ST = {data_st[0]}₽ ({await hu_number(data_st[0])}) <i>({percent_st})</i>\n1V = {data_v[0]}₽ ({await hu_number(data_v[0])}) <i>({percent_v})</i>', reply_markup=inline.choose_type_buttons)
+    await message.answer(f'<b>Текущие цены:</b>\n1ST = {data_st[0]}₽ <i>({percent_st})</i>\n1V = {data_v[0]}₽ <i>({percent_v})</i>', reply_markup=inline.choose_type_buttons)
 
 @router.message(F.text.lower().in_(["🆕 донаты"]))
 async def donates(message: Message):
