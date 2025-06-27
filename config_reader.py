@@ -4,6 +4,12 @@ from pydantic import SecretStr
 
 class Settings(BaseSettings):
     bot_token: SecretStr
+    db_name: SecretStr
+    db_port: SecretStr
+    db_user: SecretStr
+    db_password: SecretStr
+    db_host: SecretStr
+
 
     model_config: SettingsConfigDict = SettingsConfigDict(
         env_file=".env",
@@ -11,7 +17,7 @@ class Settings(BaseSettings):
     )
 
 class Config():
-    version = 'v0.6',
+    version = 'v0.7',
     admin_id = 980316238
 
 class ST():

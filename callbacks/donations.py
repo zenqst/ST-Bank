@@ -4,7 +4,8 @@ from aiogram.fsm.context import FSMContext
 
 from keyboards import builders
 from config_reader import v
-from data.datebase import update_data, get_profile
+from data.queries import get_profile
+from data.core import db
 
 router = Router()
 
@@ -35,7 +36,7 @@ async def process_successful_payment(message: Message, state: FSMContext):
     balance = await get_profile(user_id, username)
 
     # 💾 Увеличиваем баланс на amount
-    await update_data("users", {"v": balance[2] + amount})
+    await db.update_data("users", {"v": balance[2] + amount})
 
     await state.clear()
     await message.answer(f"<b>✅ Оплата прошла успешно!</b>\n\nНа счёт добавлено {amount}V")

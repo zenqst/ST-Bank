@@ -3,14 +3,25 @@ from aiogram.types import Message
 
 from keyboards import reply, inline, builders, fabrics
 
+from data.queries import get_profile, get_price, register
+
+from utils.enums import UserStatus
+
 from config_reader import config, v
-from data.datebase import get_profile, get_price, open_box
+
 
 router = Router()
 
 @router.message(F.text.lower().in_(["💲 открыть брокерский счёт"]))
 async def open(message: Message):
-    await message.reply("✅ <b>Поздравляю! Вы открыли брокерский счёт в ST Bank.</b>\n\nВ подарок вам было выдано <b>2000₽, 10ST и 5V</b>\n\n⚠️ Акции не являются настоящими. Все валюты исключительно виртуальные и не связаны с реальными денежными средствами.", reply_markup = reply.main)
+    status = await register(message.from_user.id, message.from_user.username)
+
+    if status == UserStatus.SUCCESS:
+        await message.reply("✅ <b>Поздравляю! Вы открыли брокерский счёт в ST Bank.</b>\n\nВ подарок вам было выдано <b>2000₽, 10ST и 5V</b>\n\n⚠️ Акции не являются настоящими. Все валюты исключительно виртуальные и не связаны с реальными денежными средствами.", reply_markup = reply.main)
+    elif status == UserStatus.ALREADY_EXISTS:
+        await message.reply("❌ <b>Вы уже были зарегистрированы ранее!</b>")
+    else:
+        await message.reply("⛔️ <b>Возникла неизвестная ошибка!</b>")
 
 @router.message(F.text.lower().in_(["🔙 вернуться"]))
 async def back(message: Message):

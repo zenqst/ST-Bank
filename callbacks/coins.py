@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 from utils.states import Interaction, Donate
-from data.datebase import advanced_interaction, last_interaction, open_box, get_profile, get_price, items
+from data.queries import advanced_interaction, last_interaction, open_box, get_profile, get_price, items
 from callbacks.donations import send_invoice_handler
 
 from keyboards import inline, reply

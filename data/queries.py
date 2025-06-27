@@ -4,12 +4,14 @@ from aiogram.fsm.context import FSMContext
 
 from dotenv import load_dotenv
 
-import humanize
-
 from config_reader import st, v
+
 from data.google_sheets import add_to_table
-from data.db_init import init_db, get_connection
+from data.core import db
+
 from keyboards import inline, reply
+
+from utils.enums import UserStatus
 
 import random
 
@@ -17,132 +19,47 @@ from config_reader import config
 import json
 
 load_dotenv()
-init_db()
 
 # img = open('data/box_open.gif', 'rb')
 
 not_register = '⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.'
 
-async def select_data(rows: list, table: str, identifiers: dict):
+async def register(id, username) -> UserStatus:
     """
-    >> select_data(['text'], 'test', {'ids': 5})
+    Функция регистрации пользователя
 
-    () SELECT text FROM test WHERE ids = ?
-    << Тест-тест!
+    :param id: Передаём user_id
+    :param username: Передаём username
+    :return: UserStatus (ENUM)
     """
-    con = get_connection()
-    cur = con.cursor()
+    status = await get_profile(id)
 
-    if identifiers:
-        identifiers_str = ' AND '.join([f"{key} = ?" for key in identifiers.keys()])
-        query = f"SELECT {', '.join(rows)} FROM {table} WHERE {identifiers_str}"
-        values = tuple(identifiers.values())
+    if status == UserStatus.NOT_FOUND:
+        await db.insert_data('users', {'id': id, 'username': username, 'ruble': 2000, 'st': 10, 'v': 5})
+        return UserStatus.SUCCESS
     else:
-        query = f"SELECT {', '.join(rows)} FROM {table}"
-        values = ()
-
-    cur.execute(query, values)
-    result = cur.fetchone()
-
-    cur.close()
-    con.close()
-
-    if result is None:
-        return None
-    else:
-        return result
-
-async def insert_data(table: str, values: dict):
-    """
-    >> db_insert('test', {'text': 'Тест-тест!', 'ids': 5})
-
-    () INSERT INTO test (text, ids) VALUES (?, ?)
-    () Появилась запись Тест-тест!
-    """
-    con = get_connection()
-    cur = con.cursor() 
-
-    columns = list(values.keys())
-    values_list = list(values.values())
-
-    columns_str = ', '.join(columns)
-    placeholders = ', '.join(['?']*len(values_list))
-    query = f"INSERT INTO {table} ({columns_str}) VALUES ({placeholders})"
-
-    cur.execute(query, values_list)
-    con.commit()
-
-    cur.close()
-    con.close()
-
-async def update_data(table: str, values: dict, identifiers: dict):
-    """
-    >> db_update('test', {'text': 'Тест'}, {'ids': 5})
-
-    () UPDATE test SET text = ? WHERE ids = ?
-    () Тест-тест! -> Тест
-    """
-    con = get_connection()
-    cur = con.cursor()
-
-    set_values_str = ', '.join([f"{key} = ?" for key in values.keys()])
-    identifiers_str = ' AND '.join([f"{key} = ?" for key in identifiers.keys()])
-    query = f"UPDATE {table} SET {set_values_str} WHERE {identifiers_str}"
-
-    query_values = list(values.values()) + list(identifiers.values())
-
-    cur.execute(query, query_values)
-    con.commit()
-
-    cur.close()
-    con.close()
-
-
-async def delete_data(table: str, identifiers: dict):
-    """
-    >> db_delete('test', {'ids': 5})
-
-    () DELETE FROM test WHERE ids = ?
-    () Запись удалена
-    """
-    con = get_connection()
-    cur = con.cursor() 
-
-    identifiers_str = ' AND '.join([f"{key} = ?" for key in identifiers.keys()])
-    query = f"DELETE FROM {table} WHERE {identifiers_str}"
+        return UserStatus.ALREADY_EXISTS
     
-    values = tuple(identifiers.values())
-
-    cur.execute(query, values)
-    con.commit()
-
-    cur.close()
-    con.close()
-
-
-async def register(id, username):
-    if (await select_data(['username'], 'users', {'id': id})):
-        return True
-    if not username:
-        return False
-    else:
-        await insert_data('users', {'id': id, 'username': username, 'ruble': 2000, 'st': 10, 'v': 5})
-        return False
-    
-async def get_profile(id, username):
+async def get_profile(id) -> list | UserStatus:
     """
-    Передаём айди и никнейм
-    В ответ получаем формат из: ruble[0], st[1], v[2], boxes[3]
+    Функция получения профиля
+
+    :param id: Передаём user_id
+    :return: list, состоящий из ruble[0], st[1], v[2], boxes[3] **OR** UserStatus.NOT_FOUND
     """
 
-    if (await register(id, username)):
-        data = await select_data(['ruble', 'st', 'v', 'boxes'], 'users', {'id': id})
+    status = await db.select_data('users', "*", {'id': id})
+
+    if status:
+        data = await db.select_data(['ruble', 'st', 'v', 'boxes'], 'users', {'id': id})
+
+        print(type(data))
         return data
     else:
-        return False
+        return UserStatus.NOT_FOUND
 
 async def get_price(name):
-    data = await select_data(['curr_price', 'diff_percent'], 'coins', {'name': name})
+    data = await db.select_data(['curr_price', 'diff_percent'], 'coins', {'name': name})
     return data
 
 async def last_interaction(id: int, username: str, state: FSMContext):
@@ -168,22 +85,22 @@ async def last_interaction(id: int, username: str, state: FSMContext):
         if price > balance[1]:
             await state.clear()
             return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}ST (Баланс: {balance[1]}ST)'
-        await update_data('users', {'st': balance[1] - price}, {'id': id})
-        await update_data('users', {'boxes': currency_balance + int(amount)}, {'id': id})
+        await db.update_data('users', {'st': balance[1] - price}, {'id': id})
+        await db.update_data('users', {'boxes': currency_balance + int(amount)}, {'id': id})
         return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{amount} 📦</b> за <b>{price}ST</b>'
     elif data['type'] == 'buy':
         if price > balance[0]:
             await state.clear()
             return f'❌ <b>Недостаточно средств</b>\n\nНеобходимо: {price}₽ (Баланс: {balance[0]}₽)'
-        await update_data('users', {'ruble': balance[0] - price}, {'id': id})
-        await update_data('users', {currency: currency_balance + int(amount)}, {'id': id})
+        await db.update_data('users', {'ruble': balance[0] - price}, {'id': id})
+        await db.update_data('users', {currency: currency_balance + int(amount)}, {'id': id})
         return f'✅ <b>Успешно!</b>\n\nВы приобрели <b>{amount}{currency.upper()}</b> за <b>{price}₽</b>'
     else:
         if amount > currency_balance:
             await state.clear()
             return f'❌ <b>Недостаточно акций</b>\n\nНеобходимо: {amount}{currency.upper()} (Баланс: {currency_balance}{currency.upper()})'
-        await update_data('users', {'ruble': balance[0] + price}, {'id': id})
-        await update_data('users', {currency: currency_balance - int(amount)}, {'id': id})
+        await db.update_data('users', {'ruble': balance[0] + price}, {'id': id})
+        await db.update_data('users', {currency: currency_balance - int(amount)}, {'id': id})
         return f'✅ <b>Успешно!</b>\n\nВы продали <b>{amount}{currency.upper()}</b> за <b>{price}₽</b>'
 
 async def change_coin(name: str, bot: Bot):
@@ -208,7 +125,7 @@ async def change_coin(name: str, bot: Bot):
     if name == "v":
         await bot.send_message(config.admin_id, f'✅ <b>Цена успешно изменена!</b>')
 
-    await update_data('coins', {'curr_price': new_price, 'diff_percent': new_diff_percent}, {'name': name})
+    await db.update_data('coins', {'curr_price': new_price, 'diff_percent': new_diff_percent}, {'name': name})
 
 async def advanced_interaction(state: FSMContext, message: Message):
     await state.update_data(amount=message.text)
@@ -294,28 +211,16 @@ async def open_box(id, username, message: Message, amount: int = 1):
         'Обычная': 10
     }
 
-    con = get_connection()
-    cur = con.cursor()
-
-    query = "SELECT id, name, rarity FROM loot"
-    cur.execute(query)
-    all_items = cur.fetchall()
-
-    query = "SELECT loot FROM users WHERE id = ?"
-    cur.execute(query, (id,))
-    res = cur.fetchone()
-    user_loot = json.loads(res[0]) if res and res[0] else []
+    all_items = await db.select_data("loot", ["id", "name", "rarity"], fetch_all=True)
+    res = await db.select_data("users", ["loot"], {"id": id})
+    user_loot = json.loads(res['loot']) if res and res['loot'] else []
 
     if not balance:
-        await message.answer('⚠️ Ваш аккаунт <b>не был зарегистрирован</b>. Отправьте команду заново.')
-        cur.close()
-        con.close()
+        await message.answer(not_register)
         return
 
     if balance[3] < amount:
         await message.answer(f'⚠️ Недостаточно <b>боксов</b> для открытия. У вас: {balance[3]}, нужно: {amount}.')
-        cur.close()
-        con.close()
         return
 
     boxes_left = balance[3]
@@ -342,9 +247,8 @@ async def open_box(id, username, message: Message, amount: int = 1):
         else:
             user_loot.append({'id': item_id, 'exist': True})
             obtained_items.append((item_rarity, f"{rarity_icon} <b>{item_name}</b>"))
-            update_query = "UPDATE users SET loot = ? WHERE id = ?"
-            cur.execute(update_query, (json.dumps(user_loot), id))
-            con.commit()
+
+            db.update_data('users', {'loot': json.dumps(user_loot)}, {"id": id})
 
         # Решаем, тратится ли бокс
         if not is_duplicate and random.randint(0, 1) == 0:
@@ -352,7 +256,7 @@ async def open_box(id, username, message: Message, amount: int = 1):
         boxes_left -= 1
 
     # Обновляем финальный баланс
-    await update_data('users', {'st': st_balance, 'boxes': boxes_left}, {'id': id})
+    await db.update_data('users', {'st': st_balance, 'boxes': boxes_left}, {'id': id})
 
     # Сортировка предметов по редкости
     obtained_items.sort(key=lambda x: rarities_order.index(x[0]))
@@ -371,9 +275,6 @@ async def open_box(id, username, message: Message, amount: int = 1):
 
     await message.answer(final_text)
 
-    cur.close()
-    con.close()
-
 async def items(id, username, call, inline):
     rarities_icons = {
         'Легендарная': '🟡',
@@ -391,17 +292,9 @@ async def items(id, username, call, inline):
         'Обычная': 50
     }
 
-    con = get_connection()
-    cur = con.cursor()
-
-    query = "SELECT id, name, rarity FROM loot"
-    cur.execute(query)
-    all_items = cur.fetchall()
-
-    query = "SELECT loot FROM users WHERE id = ?"
-    cur.execute(query, (id,))
-    res = cur.fetchone()
-    user_loot = json.loads(res[0]) if res and res[0] else []
+    all_items = await db.select_data("loot", ["id", "name", "rarity"], fetch_all=True)
+    res = await db.select_data("users", ["loot"], {"id": id})
+    user_loot = json.loads(res['loot']) if res and res['loot'] else []
 
 
     text = ""
@@ -423,22 +316,10 @@ async def items(id, username, call, inline):
 
         text += "\n"  # Добавляем дополнительный перенос строки между редкостями
 
-    cur.close()
-    con.close()
-
     return await call.message.edit_text(text, reply_markup=inline.items_buttons)
 
 async def sending(text, bot):
-    # Подключаемся к базе данных
-    con = get_connection()
-    cur = con.cursor()
-
-    # Извлекаем всех пользователей из таблицы users
-    cur.execute("SELECT id FROM test_users")
-    users = cur.fetchall()
-
-    cur.close()
-    con.close()
+    users = db.select_data('users', ['id'], fetch_all=True)
 
     # Инициализируем счётчики
     success_count = 0

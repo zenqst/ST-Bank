@@ -10,12 +10,11 @@ from callbacks import coins, donations
 
 from config_reader import settings
 
-from data.datebase import change_coin
-from data.db_init import init_db
+from data.queries import change_coin
+from data.core import db
 from keep_alive import keep_alive
 
 keep_alive()
-init_db()
 
 async def scheduled_task(bot: Bot):
     while True:
@@ -26,6 +25,8 @@ async def scheduled_task(bot: Bot):
 async def main():
     bot = Bot(settings.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
+
+    await db.connect()
 
     dp.include_routers(
         user_commands.router,
