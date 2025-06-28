@@ -45,21 +45,18 @@ async def get_profile(id) -> list | UserStatus:
     Функция получения профиля
 
     :param id: Передаём user_id
-    :return: list, состоящий из ruble[0], st[1], v[2], boxes[3] **OR** UserStatus.NOT_FOUND
+    :return: list (id[0], username[1], ruble[2], st[3], v[4], boxes[5], loot[6]) **OR** UserStatus.NOT_FOUND
     """
 
-    status = await db.select_data('users', "*", {'id': id})
+    data = await db.select_data('users', "*", {'id': id})
 
-    if status:
-        data = await db.select_data(['ruble', 'st', 'v', 'boxes'], 'users', {'id': id})
-
-        print(type(data))
+    if data:
         return data
     else:
         return UserStatus.NOT_FOUND
 
 async def get_price(name):
-    data = await db.select_data(['curr_price', 'diff_percent'], 'coins', {'name': name})
+    data = await db.select_data('coins', ['curr_price', 'diff_percent'], {'name': name})
     return data
 
 async def last_interaction(id: int, username: str, state: FSMContext):

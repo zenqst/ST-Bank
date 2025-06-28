@@ -53,17 +53,26 @@ async def torg(message: Message):
     data_st = await get_price('st')
     data_v = await get_price('v')
 
-    if float(data_st[1]) >= 0:
-        percent_st = f'+{data_st[1]}%'
-    else:
-        percent_st = f'{data_st[1]}%'
+    price_st = round(float(data_st[0]), 2)
+    price_v = round(float(data_v[0]), 2)
 
-    if float(data_v[1]) >= 0:
-        percent_v = f'+{data_v[1]}%'
-    else:
-        percent_v = f'{data_v[1]}%'
+    percent_st_val = float(data_st[1])
+    percent_v_val = float(data_v[1])
 
-    await message.answer(f'<b>Текущие цены:</b>\n1ST = {data_st[0]}₽ <i>({percent_st})</i>\n1V = {data_v[0]}₽ <i>({percent_v})</i>', reply_markup=inline.choose_type_buttons)
+    # if float(data_st[1]) >= 0:
+    #     percent_st = f'+{data_st[1]}%'
+    # else:
+    #     percent_st = f'{data_st[1]}%'
+
+    # if float(data_v[1]) >= 0:
+    #     percent_v = f'+{data_v[1]}%'
+    # else:
+    #     percent_v = f'{data_v[1]}%'
+
+    percent_st = f"+{round(percent_st_val, 2)}" if percent_st_val > 0 else str(round(percent_st_val, 2))
+    percent_v = f"+{round(percent_v_val, 2)}" if percent_v_val > 0 else str(round(percent_v_val, 2))
+
+    await message.answer(f'<b>Текущие цены:</b>\n1ST = {price_st}₽ <i>({percent_st}%)</i>\n1V = {price_v}₽ <i>({percent_v}%)</i>', reply_markup=inline.choose_type_buttons)
 
 @router.message(F.text.lower().in_(["🆕 донаты"]))
 async def donates(message: Message):

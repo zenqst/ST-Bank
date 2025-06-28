@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     )
 
 class Config():
-    version = 'v0.7',
+    version = 'v0.7.2',
     admin_id = 980316238
 
 class ST():

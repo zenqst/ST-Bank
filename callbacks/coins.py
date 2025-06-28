@@ -22,8 +22,7 @@ async def action_type_handler(call: CallbackQuery, callback_data: ActionCallback
 @router.callback_query(CurrencyCallback.filter())
 async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
-    username = call.from_user.username
-    balance = await get_profile(user_id, username)
+    balance = await get_profile(user_id)
 
     data = await state.get_data()
     await state.set_state(Interaction.currency)

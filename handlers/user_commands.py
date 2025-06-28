@@ -3,6 +3,8 @@ from aiogram.types import Message, LabeledPrice
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 
+import asyncio
+
 from keyboards import reply
 from keyboards import builders
 
@@ -42,3 +44,17 @@ async def sending_process(message: Message, state: FSMContext):
     await message.reply(result)
 
     await state.clear()
+
+@router.message(Command("shut"))
+async def shutdown_handler(message: Message):
+    if message.from_user.id != config.admin_id:
+        pass
+
+    await message.answer("Бот выключается...")
+
+    asyncio.create_task(shutdown())
+
+async def shutdown():
+    await asyncio.sleep(1)
+    import os
+    os._exit(0)
