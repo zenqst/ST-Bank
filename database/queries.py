@@ -9,6 +9,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+async def register(id, username) -> UserStatus:
+    """
+    Функция для регистрации юзера
+
+    :param id: Айди пользователя
+    :param username: Юзернейм пользователя
+    :return: Базовый UserStatus
+    """
+    status = await check_profile(id)
+
+    if status == UserStatus.NOT_FOUND:
+        db.insert_data("users", {"id": id, "username": username})
+
+        return UserStatus.SUCCESS
+    
+    else:
+        return status
+
 async def get_profile(id) -> list | UserStatus:
     """
     Функция для получения профиля юзера, при его отсутствии отсылает UserStatus
