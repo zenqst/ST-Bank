@@ -1,30 +1,47 @@
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject, CallbackQuery
-from typing import Callable, Dict, Any, Awaitable
-
+from aiogram.types import Message, CallbackQuery, TelegramObject
+from typing import Callable, Awaitable, Dict, Any, Union
 from database.queries import check_profile
 from states.enums import UserStatus
 from keyboards.inline import register_buttons
 
 class UserCheckMiddleware(BaseMiddleware):
-    async def __call__(self, handler, event, data):
-        if not hasattr(event, 'from_user'):
+    def __init__(self):
+        self.skip_commands = {"/start", "/shut"} # commands for skip checking
+
+    async def __call__(self,
+            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+            event: TelegramObject,
+            data: Dict[str, Any]
+        ):
+        if isinstance(event, Message):
+            user_id = event.from_user.id
+            text = event.text or ""
+            if text.split()[0] in self.skip_commands:
+                return await handler(event, data)
+
+            msg = event
+
+        elif isinstance(event, CallbackQuery):
+            user_id = event.from_user.id
+            data_str = event.data or ""
+            if data_str.split(":")[0] in self.skip_commands:
+                return await handler(event, data)
+
+            msg = event.message
+
+        else:
             return await handler(event, data)
-        
-        user_id = event.from_user.id
+
         status = await check_profile(user_id)
-        
+
         if status == UserStatus.NOT_FOUND:
-            if isinstance(event, (Message, CallbackQuery)):
-                msg = event if isinstance(event, Message) else event.message
-                await msg.answer(
-                    "⚠️ <b>Вы ещё не зарегистрировались!</b>",
-                    reply_markup=register_buttons
-                )
-            
+            await msg.answer(
+                "⚠️ <b>Вы ещё не зарегистрировались!</b>\n\nПропишите /start",
+            )
             if isinstance(event, CallbackQuery):
                 await event.answer()
-            
             return
-        
+
+        data["user_id"] = user_id
         return await handler(event, data)

@@ -3,9 +3,12 @@ from aiogram.types import Message, LabeledPrice
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 
+from os import _exit as exit
 import asyncio
+from logging import error
 
 from config_reader import config
+from database.queries import check_profile
 
 router = Router()
 
@@ -13,6 +16,11 @@ router = Router()
 async def start(message: Message):
     # TODO: Доделать тут нормально
     await message.answer(f"LOREM IPSUM MUHAHA")
+
+@router.message(Command("check"))
+async def check(message: Message):
+    status = await check_profile(message.from_user.id)
+    await message.answer(status)
 
 @router.message(Command("shut"))
 async def shutdown_handler(message: Message):
@@ -25,5 +33,5 @@ async def shutdown_handler(message: Message):
 
 async def shutdown():
     await asyncio.sleep(1)
-    import os
-    os._exit(0)
+    error("Bot shutdowned by command")
+    exit(0)
