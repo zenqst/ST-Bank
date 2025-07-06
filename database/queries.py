@@ -20,7 +20,7 @@ async def register(id, username) -> UserStatus:
     status = await check_profile(id)
 
     if status == UserStatus.NOT_FOUND:
-        db.insert_data("users", {"id": id, "username": username})
+        await db.insert_data("users", {"id": id, "username": username})
 
         return UserStatus.SUCCESS
     

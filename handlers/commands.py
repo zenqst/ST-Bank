@@ -8,14 +8,24 @@ import asyncio
 from logging import error
 
 from config_reader import config
-from database.queries import check_profile
+from database.queries import check_profile, check_profile
+from states.enums import UserStatus
+from keyboards.reply import register, main
 
 router = Router()
 
 @router.message(CommandStart())
 async def start(message: Message):
-    # TODO: Доделать тут нормально
-    await message.answer(f"LOREM IPSUM MUHAHA")
+    user_id = message.from_user.id
+
+    status = await check_profile(user_id)
+
+    if status == UserStatus.NOT_FOUND:
+        keyboard = register
+    else:
+        keyboard = main
+
+    await message.answer(f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал в бот <b>ST Bank</b> ({config.version[0]})\n\nЗдесь тебе придётся торговать акциями, открывать боксы, фиксировать <s>убытки</s> прибыль", reply_markup = keyboard)
 
 @router.message(Command("check"))
 async def check(message: Message):
@@ -31,7 +41,6 @@ async def shutdown_handler(message: Message):
 
     asyncio.create_task(shutdown())
 
-async def shutdown():
-    await asyncio.sleep(1)
+async def shutdown():    
     error("Bot shutdowned by command")
     exit(0)
