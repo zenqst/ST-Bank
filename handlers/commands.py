@@ -6,13 +6,17 @@ from aiogram.fsm.context import FSMContext
 from os import _exit as exit
 import asyncio
 from logging import error
+from asyncio import sleep
 
 from config_reader import config
-from database.queries import check_profile, check_profile
+from database.queries import check_profile, check_profile, check_casino_balance
+from database.core import db
 from states.enums import UserStatus
 from keyboards.reply import register, main
 
 router = Router()
+
+# Коммент
 
 @router.message(CommandStart())
 async def start(message: Message):
@@ -31,6 +35,22 @@ async def start(message: Message):
 async def check(message: Message):
     status = await check_profile(message.from_user.id)
     await message.answer(status)
+
+@router.message(Command("game"))
+async def handler_game(message: Message): 
+    user_id = message.from_user.id
+
+    msg = await message.answer_dice(emoji="🎰")
+    value = msg.dice.value
+    balance = await check_casino_balance(user_id)
+
+    balance_now = balance['casino_pts'] + value - 30
+    await db.update_data("users", {"casino_pts": balance_now}, {"id": user_id})
+
+    res_msg = await msg.reply(f"⏳ <b>Обработка результата...</b>")
+    await sleep(3)
+
+    await res_msg.edit_text(f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now}")
 
 @router.message(Command("shut"))
 async def shutdown_handler(message: Message):

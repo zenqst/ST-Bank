@@ -59,3 +59,8 @@ async def check_profile(id: int) -> UserStatus:
         return UserStatus.NOT_FOUND
     else:
         return UserStatus.ERROR
+
+async def check_casino_balance(id):
+    data = await db.select_data("users", "casino_pts", {"id": id})
+
+    return data
