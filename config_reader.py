@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     db_host: SecretStr
     db_pool_min: SecretStr
     db_pool_max: SecretStr
+    notify_chat_id: SecretStr
 
     model_config: SettingsConfigDict = SettingsConfigDict(
         env_file=".env",
