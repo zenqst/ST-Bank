@@ -1,0 +1,6 @@
+aiogram==3.21.0
+asyncpg==0.30.0
+Flask==3.1.1
+pydantic==2.11.7
+pydantic_settings==2.10.1
+python-dotenv==1.1.1
