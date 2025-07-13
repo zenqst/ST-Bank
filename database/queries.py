@@ -27,17 +27,17 @@ async def register(id, username) -> UserStatus:
     else:
         return status
 
-async def get_profile(id) -> list | UserStatus:
+async def get_profile(id) -> dict | UserStatus:
     """
     Функция для получения профиля юзера, при его отсутствии отсылает UserStatus
 
     :param id: Айди пользователя
-    :return: list из базы данных or UserStatus
+    :return: dict из базы данных or UserStatus
     """
     status = await check_profile(id)
 
     if status == UserStatus.ALREADY_EXISTS:
-        data = await db.select_data("users", "*", {"id": id})
+        data = await db.select_data("users", "*", {"id": id}, fetch_all=False)
         return data
 
     else:
