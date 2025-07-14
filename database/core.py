@@ -28,8 +28,10 @@ ALLOWED_TABLES = {"users", "items", "coins"}
 def safe_identifier(identifier: str) -> str:
     """
     Проверяет, что идентификатор (имя таблицы/поля) безопасен для вставки в SQL.
-    Разрешены только латинские буквы, цифры и подчёркивание.
+    Разрешены только латинские буквы, цифры, подчёркивание и звёздочка (*).
     """
+    if identifier == "*":
+        return identifier
     if not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", identifier):
         raise ValueError(f"Invalid name: {identifier}")
     return identifier
@@ -83,7 +85,7 @@ class DB:
         if isinstance(rows, str) and rows != "*":
             rows = [rows]
 
-        if rows == "*" or rows == ["*"]:
+        if (rows == "*" or rows == ["*"]) and fetch_all != False:
             row_part = "*"
             fetch_all = True
         else:

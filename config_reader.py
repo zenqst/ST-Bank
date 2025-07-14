@@ -1,7 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import SecretStr
 
-
 class Settings(BaseSettings):
     bot_token: SecretStr
     db_name: SecretStr
@@ -19,20 +18,18 @@ class Settings(BaseSettings):
     )
     
 class Config():
-    version = 'v0.8',
+    version = 'v0.9',
     admin_id = 980316238
 
 class ST():
-    max_growth = 0.3
-    max_fall = 0.3
-    min_price = 50
+    max_growth: float = 0.3
+    max_fall: float = 0.3
+    min_price: float = 50.0
 
 class V():
-    max_growth = 0.45
-    max_fall = 0.45
-    min_price = 500
-    in_irl_rub = 100
-
+    max_growth: float = 0.45
+    max_fall: float = 0.45
+    min_price: float = 500.0
 
 settings = Settings()
 config = Config()
