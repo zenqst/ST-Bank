@@ -2,6 +2,7 @@
     "conventionalCommits.scopes": [
         "commands",
         "config",
-        "messages"
+        "messages",
+        "coins"
     ]
 }
