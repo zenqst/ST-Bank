@@ -3,9 +3,9 @@ from aiogram.types import Message
 import prettytable as pt
 
 from keyboards.reply import main
-from keyboards.inline import profile_buttons
+from keyboards.inline import profile_buttons, action_buttons
 
-from database.queries import get_profile, register
+from database.queries import get_profile, register, get_price
 
 from states.enums import UserStatus
 
@@ -52,8 +52,11 @@ async def profile(message: Message):
         ('BOX', data['boxes'])
     ])
     
-    await message.reply(f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>", reply_markup=profile_buttons)
+    await message.answer(f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>", reply_markup=profile_buttons)
 
 @router.message(F.text.lower().in_(["📊 торговать"]))
 async def trade(message: Message):
-    pass
+    st_price = await get_price("st")
+    v_price = await get_price("v")
+
+    await message.answer(f"<b>Текущие цены:</b>\n1 ST = {st_price['cost']} RUB <i>({st_price['diff']})</i>\n1 V = {v_price['cost']} RUB <i>({v_price['diff']})</i>", reply_markup=action_buttons)

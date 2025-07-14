@@ -6,6 +6,7 @@ from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from handlers import commands, messages
+from callbacks import common, trade
 from middlewares.check_user import UserCheckMiddleware
 
 from config_reader import settings
@@ -34,7 +35,9 @@ async def main():
 
     dp.include_routers(
         commands.router,
-        messages.router
+        messages.router,
+        trade.router,
+        common.router
     )
 
     # scheduled_task_task = asyncio.create_task(scheduled_task(bot))

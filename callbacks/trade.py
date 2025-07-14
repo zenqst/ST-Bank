@@ -1,0 +1,90 @@
+from aiogram import Router, Bot, F
+from aiogram.types import CallbackQuery, Message
+from aiogram.fsm.context import FSMContext
+
+from states.fsm_states import Interaction
+from states.enums import InterCurrency, InterActions
+
+from database.queries import get_profile, get_price, adv_interaction, build_amount_prompt, final_interaction
+from keyboards import inline, reply
+from keyboards.inline import ActionCallback, CurrencyCallback
+
+router = Router()
+
+@router.callback_query(ActionCallback.filter())
+async def action_type_handler(call: CallbackQuery, callback_data: ActionCallback, bot: Bot, state: FSMContext):
+    await state.set_state(Interaction.type) # приводим в активность type у interaction
+    await state.update_data(type=callback_data.action_type)
+
+    await bot.answer_callback_query(call.id)
+    await call.message.edit_text('Выберите валюту для взаимодействия\n\n<b>Краткая сводка:</b>\n<b>ST</b> — валюта для начинающих, является более стабильной. Помогает новичкам обрести свой первый капитал.\n<b>V</b> — валюта, которая уже является более реалистичной. В ней цена может в любой момент обвалиться почти в 0, а может, и вырасти на тысячи рублей.', reply_markup=inline.choose_currency_buttons)
+
+@router.callback_query(CurrencyCallback.filter())
+async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback, bot: Bot, state: FSMContext):
+    # user_id = call.from_user.id
+    # balance = await get_profile(user_id)
+
+    # data = await state.get_data()
+    # await state.set_state(Interaction.currency)
+    # await bot.answer_callback_query(call.id)
+
+    # currency = callback_data.currency
+    # await state.update_data(currency=currency)
+
+    # if data['type'] == "buy":
+    #     text = f"Введите количество {currency.upper()}, которое вы хотите приобрести (Баланс: {balance["ruble"]}₽)"
+    # else:
+    #     balance_index = 2 if currency == "ST" else 3
+    #     currency_balance = balance[balance_index]
+    #     text = f"Введите количество {currency.upper()}, которое вы хотите продать (Баланс: {currency_balance}{currency.upper()})"
+
+    # await state.set_state(Interaction.amount)
+    # await call.message.edit_text(text, reply_markup=inline.cancel_button)
+
+    user_id = call.from_user.id
+
+    interaction_data = await state.get_data()
+    await state.set_state(Interaction.currency)
+    await bot.answer_callback_query(call.id)
+
+    currency = callback_data.currency
+    await state.update_data(currency=currency)
+
+
+    text = await build_amount_prompt(user_id, interaction_data['type'], currency)
+
+    msg = await call.message.edit_text(text, reply_markup=inline.update_buttons)
+
+    await state.set_state(Interaction.msg_id)
+    await state.update_data(msg_id=msg.message_id)
+
+    await state.set_state(Interaction.amount)
+
+@router.callback_query(F.data == "update")
+async def update_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
+    user_id = call.from_user.id
+
+    data = await state.get_data()
+
+    currency = data['currency']
+    action = data['type']
+
+
+    await bot.answer_callback_query(call.id)
+
+    text = await build_amount_prompt(user_id, action, currency, include_diff=True)
+    msg = await call.message.edit_text(text, reply_markup=inline.update_buttons)
+
+    await state.set_state(Interaction.msg_id)
+    await state.update_data(msg_id=msg.message_id)
+
+@router.callback_query(F.data == "agree")
+async def update_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
+    await final_interaction(call, state, bot)
+    await call.message.delete()
+    await bot.answer_callback_query(call.id)
+
+@router.message(Interaction.amount)
+async def interaction_amount_handler(message: Message, state: FSMContext, bot: Bot):
+    await state.update_data(amount=message.text)
+    await adv_interaction(message, state, bot)
