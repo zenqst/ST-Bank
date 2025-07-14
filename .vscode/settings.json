@@ -1,5 +1,7 @@
 {
     "conventionalCommits.scopes": [
-        "commands"
+        "commands",
+        "config",
+        "messages"
     ]
 }

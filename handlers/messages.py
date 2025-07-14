@@ -3,6 +3,7 @@ from aiogram.types import Message
 import prettytable as pt
 
 from keyboards.reply import main
+from keyboards.inline import profile_buttons
 
 from database.queries import get_profile, register
 
@@ -14,7 +15,7 @@ from config_reader import config, v
 router = Router()
 
 @router.message(F.text.lower().in_(["💲 открыть брокерский счёт"]))
-async def open(message: Message):
+async def start_message(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
 
@@ -39,7 +40,7 @@ async def send_table(data):
     return table
 
 @router.message(F.text.lower().in_(["📋 профиль"]))
-async def open(message: Message):
+async def profile(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
     data = await get_profile(user_id)
@@ -51,12 +52,8 @@ async def open(message: Message):
         ('BOX', data['boxes'])
     ])
     
-    # profile_msg = (
-    #     f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n"
-    #     f"<b>RUB:</b> {data['rubles']}\n"
-    #     f"<b>ST:</b> {data['st']}\n"
-    #     f"<b>V:</b> {data['v']}\n"
-    #     f"<b>📦:</b> {data['boxes']}\n"
-    # )
-    
-    await message.reply(f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>")
+    await message.reply(f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>", reply_markup=profile_buttons)
+
+@router.message(F.text.lower().in_(["📊 торговать"]))
+async def trade(message: Message):
+    pass

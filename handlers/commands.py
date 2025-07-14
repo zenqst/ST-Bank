@@ -16,8 +16,6 @@ from keyboards.reply import register, main
 
 router = Router()
 
-# Коммент
-
 @router.message(CommandStart())
 async def start(message: Message):
     user_id = message.from_user.id
