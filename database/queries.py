@@ -5,8 +5,10 @@ from aiogram.fsm.context import FSMContext
 from database.core import db
 from states.enums import UserStatus, InterActions, InterCurrency
 from keyboards.inline import agree_buttons
+from config_reader import config, st, v
 
 from dotenv import load_dotenv
+from random import uniform, randint
 
 load_dotenv()
 
@@ -100,8 +102,38 @@ async def get_price(name: str, is_round: bool = True) -> dict:
 
         return new_data
 
+async def change_coin(name: str, bot: Bot) -> None:
+    coin: object = globals()[name]
+    max_growth: float = coin.max_growth
+    max_fall: float = coin.max_fall
+    min_price: float = float(coin.min_price)
+
+    curr_price = await get_price(name, is_round=False)
+
+    if curr_price['cost'] <= min_price:
+        random_percent = round(uniform(0.01, max_growth), 4)
+    else:
+        random_percent = round(uniform(-max_fall, max_growth), 4)
+
+
+    new_price = round(curr_price['cost'] * (1 + random_percent), 4)
+    new_diff_percent = round(random_percent * 100, 4)
+
+    if name == "v":
+        await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>")
+    
+    await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
 
 async def build_amount_prompt(id: int, action: InterActions, currency: str, *, include_diff: bool = False) -> str:
+    """
+    Функция, конвертирующая набор данных в определённый текст (при покупке/продаже)
+
+    :param id: Айди пользователя
+    :param action: InterActions (buy/sell)
+    :param currency: Название валюты
+    :param include_diff: bool-значение. При True в строчке появляется процент изменений
+    :return: str-text
+    """
     verb = {InterActions.BUY:  "приобрести", InterActions.SELL: "продать"}[action]
 
     user_data = await get_profile(id)
@@ -118,7 +150,15 @@ async def build_amount_prompt(id: int, action: InterActions, currency: str, *, i
 
     return text
 
-async def adv_interaction(message: Message, state: FSMContext, bot: Bot):
+async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None:
+    """
+    Функция, которая учавствует в цепочке из 2ух функций для взаимодействия с валютами. В ней первично проверяется кол-во нужной суммы у человека
+
+    :param message: Message
+    :param state: FSMContext
+    :param bot: Bot
+    :return: None, только присылает сообщение
+    """
     user_id = message.from_user.id
 
     data = await state.get_data()
@@ -154,7 +194,15 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot):
     
     await message.answer(text, reply_markup=agree_buttons)
 
-async def final_interaction(call: CallbackQuery, state: FSMContext, bot: Bot):
+async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
+    """
+    Функция, которая производит взаимодействие с валютами. Является участницей цепочки из 2ух функция
+
+    :param call: CallbackQuery
+    :param state: FSMContext
+    :return: None, меняет сообщение
+    """
+
     user_id = call.from_user.id
 
     data = await state.get_data()
@@ -165,6 +213,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext, bot: Bot):
     user_data = await get_profile(user_id)
 
     last_price: float = price_data['cost'] * amount
+
+    # TODO: много повторений в коде, надо исправить
 
     if amount <= 0:
         await call.message.answer('<b>❌ Число должно быть больше 0</b>')

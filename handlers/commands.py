@@ -9,7 +9,7 @@ from logging import error
 from asyncio import sleep
 
 from config_reader import config
-from database.queries import check_profile, check_casino_balance
+from database.queries import check_profile, check_casino_balance, change_coin
 from database.core import db
 from states.enums import UserStatus
 from states.fsm_states import Interaction
@@ -35,6 +35,10 @@ async def check(message: Message, state: FSMContext):
     data = await state.get_data()
 
     await message.answer(f"Текущий статус: {status}\n\nДанные Interaction: {data}")
+    
+@router.message(Command("change"))
+async def change(message: Message, state: FSMContext, bot: Bot):
+    await change_coin("st", bot)
 
 @router.message(Command("game"))
 async def handler_game(message: Message): 
