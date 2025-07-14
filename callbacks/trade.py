@@ -80,7 +80,7 @@ async def update_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
 @router.callback_query(F.data == "agree")
 async def update_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
-    await final_interaction(call, state, bot)
+    await final_interaction(call, state)
     await call.message.delete()
     await bot.answer_callback_query(call.id)
 
