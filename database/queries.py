@@ -103,6 +103,13 @@ async def get_price(name: str, is_round: bool = True) -> dict:
         return new_data
 
 async def change_coin(name: str, bot: Bot) -> None:
+    """
+    Функция для рандомного изменения стоимости валюты по названию
+
+    :param name: Название валюты (lower)
+    :param bot: Bot
+    :return: None, обновляет запись в БД
+    """
     coin: object = globals()[name]
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
@@ -206,7 +213,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     user_id = call.from_user.id
 
     data = await state.get_data()
-    currency = data['currency']
+    currency: str = data['currency']
     amount = float(data['amount'])
 
     price_data = await get_price(currency, is_round=False)
@@ -226,7 +233,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         else:
             balance_rubles: float = user_data['rubles'] - last_price
             balance_currency: float = user_data[currency] + amount
-            text = f"✅ <b>Успешная покупка!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
+            text = f"✅ <b>Успешная покупка {amount} {currency.upper()}!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
             
             await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
 
@@ -237,7 +244,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         else:
             balance_rubles: float = user_data['rubles'] + last_price
             balance_currency: float = user_data[currency] - amount
-            text = f"✅ <b>Успешная продажа!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
+            text = f"✅ <b>Успешная продажа {amount} {currency.upper()}!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
 
             await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
 

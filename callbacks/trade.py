@@ -21,26 +21,6 @@ async def action_type_handler(call: CallbackQuery, callback_data: ActionCallback
 
 @router.callback_query(CurrencyCallback.filter())
 async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback, bot: Bot, state: FSMContext):
-    # user_id = call.from_user.id
-    # balance = await get_profile(user_id)
-
-    # data = await state.get_data()
-    # await state.set_state(Interaction.currency)
-    # await bot.answer_callback_query(call.id)
-
-    # currency = callback_data.currency
-    # await state.update_data(currency=currency)
-
-    # if data['type'] == "buy":
-    #     text = f"Введите количество {currency.upper()}, которое вы хотите приобрести (Баланс: {balance["ruble"]}₽)"
-    # else:
-    #     balance_index = 2 if currency == "ST" else 3
-    #     currency_balance = balance[balance_index]
-    #     text = f"Введите количество {currency.upper()}, которое вы хотите продать (Баланс: {currency_balance}{currency.upper()})"
-
-    # await state.set_state(Interaction.amount)
-    # await call.message.edit_text(text, reply_markup=inline.cancel_button)
-
     user_id = call.from_user.id
 
     interaction_data = await state.get_data()
