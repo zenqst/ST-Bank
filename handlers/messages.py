@@ -30,12 +30,13 @@ async def start_message(message: Message):
 
 
 async def send_table(data):
-    table = pt.PrettyTable(['Название', 'Количество'])
+    table = pt.PrettyTable(['Название', 'Количество', 'Стоимость'])
     table.align['Название'] = 'l'
     table.align['Количество'] = 'r'
+    table.align['Стоимость'] = 'r'
 
-    for symbol, price in data:
-        table.add_row([symbol, f'{price:.2f}'])
+    for symbol, price, cost in data:
+        table.add_row([symbol, f'{price:.2f}', cost])
 
     return table
 
@@ -44,12 +45,14 @@ async def profile(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
     data = await get_profile(user_id)
+    st_price = await get_price("st")
+    v_price = await get_price("v")
     
     table = await send_table([
-        ('RUB', data['rubles']),
-        ('ST', data['st']),
-        ('V', data['v']),
-        ('BOX', data['boxes'])
+        ('RUB', data['rubles'], '—'),
+        ('ST', data['st'], f'~{st_price['cost'] * data['st']} RUB'),
+        ('V', data['v'], f'~{v_price['cost'] * data['v']} RUB'),
+        ('BOX', data['boxes'], '—')
     ])
     
     await message.answer(f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>", reply_markup=profile_buttons)

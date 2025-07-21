@@ -3,6 +3,7 @@
         "commands",
         "config",
         "messages",
-        "coins"
+        "coins",
+        "requirements"
     ]
 }
