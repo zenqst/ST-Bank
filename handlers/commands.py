@@ -37,8 +37,12 @@ async def check(message: Message, state: FSMContext):
     await message.answer(f"Текущий статус: {status}\n\nДанные Interaction: {data}")
     
 @router.message(Command("change"))
-async def change(message: Message, state: FSMContext, bot: Bot):
+async def change(bot: Bot):
     await change_coin("st", bot)
+
+@router.message(Command("open"))
+async def open(command: CommandObject):
+    print(command.args, type(command.args))
 
 @router.message(Command("game"))
 async def handler_game(message: Message): 

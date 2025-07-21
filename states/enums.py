@@ -19,3 +19,10 @@ class InterCurrency(Enum):
     ST = 'st'
     V = 'v'
     BOX = 'box'
+
+class BoxRarity(Enum):
+    LEGENDARY = 'legendary'
+    MYTHIC = 'mythic'
+    EPIC = 'epic'
+    EXOTIC = 'exotic'
+    COMMON = 'common'

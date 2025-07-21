@@ -50,8 +50,8 @@ async def profile(message: Message):
     
     table = await send_table([
         ('RUB', data['rubles'], '—'),
-        ('ST', data['st'], f'~{st_price['cost'] * data['st']} RUB'),
-        ('V', data['v'], f'~{v_price['cost'] * data['v']} RUB'),
+        ('ST', data['st'], f'~{round(st_price['cost'] * data['st'], 2)} RUB'),
+        ('V', data['v'], f'~{round(v_price['cost'] * data['v'], 2)} RUB'),
         ('BOX', data['boxes'], '—')
     ])
     

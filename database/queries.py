@@ -3,12 +3,14 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 from database.core import db
-from states.enums import UserStatus, InterActions, InterCurrency
+from states.enums import UserStatus, InterActions, InterCurrency, BoxRarity
 from keyboards.inline import agree_buttons
 from config_reader import config, st, v
 
 from dotenv import load_dotenv
-from random import uniform, randint
+from random import uniform, randint, random, choices, choice
+from typing import Dict, List, Tuple
+from json import loads, dumps
 
 load_dotenv()
 
@@ -250,6 +252,165 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     await state.clear()
     await call.message.answer(text)
+
+RARITY_CONFIG: Dict[BoxRarity, Dict] = {
+    BoxRarity.LEGENDARY: {
+        'icon': '🟡',
+        'chance': 1,
+        'compensation': 1100,
+        'order': 0
+    },
+    BoxRarity.MYTHIC: {
+        'icon': '🔴',
+        'chance': 4,
+        'compensation': 700,
+        'order': 1
+    },
+    BoxRarity.EPIC: {
+        'icon': '🟣',
+        'chance': 20,
+        'compensation': 500,
+        'order': 2
+    },
+    BoxRarity.EXOTIC: {
+        'icon': '🟢',
+        'chance': 30,
+        'compensation': 300,
+        'order': 3
+    },
+    BoxRarity.COMMON: {
+        'icon': '⚪️',
+        'chance': 45,
+        'compensation': 200,
+        'order': 4
+    }
+}
+
+async def open_box(user_id: int, message: Message, *, amount: int = 1, is_free: bool = False) -> None:
+    profile = await get_profile(id)
+
+    if profile['boxes'] < amount and is_free == False:
+        await message.answer(f'⚠️ Недостаточно боксов! У вас: {profile['boxes']}, нужно: {amount}')
+        return
+
+    RARITY_CONFIG = {
+        "Легендарная": {
+            'icon': '🟡',
+            'chance': 1,
+            'compensation': 1100,
+            'order': 0
+        },
+        "Мифическая": {
+            'icon': '🔴',
+            'chance': 4,
+            'compensation': 700,
+            'order': 1
+        },
+        "Эпическая": {
+            'icon': '🟣',
+            'chance': 20,
+            'compensation': 500,
+            'order': 2
+        },
+        "Экзотическая": {
+            'icon': '🟢',
+            'chance': 30,
+            'compensation': 300,
+            'order': 3
+        },
+        "Обычная": {
+            'icon': '⚪️',
+            'chance': 45,
+            'compensation': 200,
+            'order': 4
+        }
+    }
+
+    all_items = await db.select_data("loot", ["id", "name", "rarity"], fetch_all=True)
+    user_data = await db.select_data("users", ["loot"], {"id": user_id})
+    
+    user_loot = loads(user_data['loot']) if user_data and user_data['loot'] else []
+    existing_ids = {item['id'] for item in user_loot if item.get('exist')}
+
+    # Подготовка структур для результатов
+    obtained_items = []
+    boxes_left = profile['boxes']
+    st_balance = profile['st']
+    compensation_total = 0
+    new_items = []
+
+    # Подготовка данных для случайного выбора
+    rarities = list(RARITY_CONFIG.keys())
+    weights = [RARITY_CONFIG[r]['chance'] for r in rarities]
+
+    # Главный цикл открытия боксов
+    for _ in range(amount):
+        # Выбор редкости
+        selected_rarity = choices(rarities, weights=weights, k=1)[0]
+        config = RARITY_CONFIG[selected_rarity]
+        
+        # Выбор предмета
+        available_items = [item for item in all_items if item[2] == selected_rarity]
+        if not available_items:
+            continue
+            
+        selected_item = choice(available_items)
+        item_id, item_name, _ = selected_item
+        
+        # Проверка дубликата
+        if item_id in existing_ids:
+            # Обработка дубликата
+            compensation = config['compensation']
+            st_balance += compensation
+            compensation_total += compensation
+            obtained_items.append((
+                selected_rarity,
+                f"{config['icon']} <b>{item_name}</b> (повторка +{compensation}ST)"
+            ))
+            boxes_left -= 1  # Бокс тратится всегда для дубликата
+        else:
+            # Новый предмет
+            new_items.append({'id': item_id, 'exist': True})
+            existing_ids.add(item_id)
+            obtained_items.append((
+                selected_rarity,
+                f"{config['icon']} <b>{item_name}</b>"
+            ))
+            
+            # Механика сохранения бокса (50% шанс)
+            if random() < 0.5:
+                boxes_left -= 1  # Бокс тратится только в 50% случаев
+
+    # Обновление данных пользователя
+    if new_items:
+        user_loot.extend(new_items)
+        await db.update_data('users', {
+            'loot': dumps(user_loot),
+            'st': st_balance,
+            'boxes': boxes_left
+        }, {'id': user_id})
+    else:
+        await db.update_data('users', {
+            'st': st_balance,
+            'boxes': boxes_left
+        }, {'id': user_id})
+
+    # Сортировка результатов
+    obtained_items.sort(key=lambda x: RARITY_CONFIG[x[0]]['order'])
+    items_text = "\n".join(item[1] for item in obtained_items)
+
+    # Формирование ответа
+    result_message = (
+        "<b>🎉 Поздравляем!</b>\n\n"
+        "📦 Вы получили:\n"
+        f"{items_text}\n\n"
+        f"💰 ST: {st_balance} | 📦 Боксы: {boxes_left}"
+    )
+    
+    if compensation_total > 0:
+        result_message += f"\n\n🎁 Компенсация за повторки: +{compensation_total}ST"
+    
+    await message.answer(result_message)
 
 async def check_casino_balance(id):
     data = await db.select_data("users", "casino_pts", {"id": id})
