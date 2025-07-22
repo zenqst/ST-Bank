@@ -1,17 +1,21 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters.callback_data import CallbackData
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from states.enums import CoinActions, InterCurrency
+
 
 class ActionCallback(CallbackData, prefix="type"):
     action_type: CoinActions
 
+
 class CurrencyCallback(CallbackData, prefix="curr"):
     currency: str
+
 
 class BoxCallback(CallbackData, prefix="box"):
     type: CoinActions
     amount: None | int
+
 
 profile_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -27,8 +31,8 @@ profile_buttons = InlineKeyboardMarkup(
 action_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="➕ Купить", callback_data=ActionCallback(action_type = CoinActions.BUY).pack()),
-            InlineKeyboardButton(text="➖ Продать", callback_data=ActionCallback(action_type = CoinActions.SELL).pack())
+            InlineKeyboardButton(text="➕ Купить", callback_data=ActionCallback(action_type=CoinActions.BUY).pack()),
+            InlineKeyboardButton(text="➖ Продать", callback_data=ActionCallback(action_type=CoinActions.SELL).pack())
         ],
         [
             InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
@@ -39,8 +43,8 @@ action_buttons = InlineKeyboardMarkup(
 choose_currency_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="ST", callback_data=CurrencyCallback(currency = InterCurrency.ST).pack()),
-            InlineKeyboardButton(text="V", callback_data=CurrencyCallback(currency = InterCurrency.V).pack())
+            InlineKeyboardButton(text="ST", callback_data=CurrencyCallback(currency=InterCurrency.ST).pack()),
+            InlineKeyboardButton(text="V", callback_data=CurrencyCallback(currency=InterCurrency.V).pack())
         ],
         [
             InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')

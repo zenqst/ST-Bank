@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     bot_token: SecretStr
@@ -17,7 +18,8 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8"
     )
     
-class Config():
+
+class Config:
     version = 'v0.10.1',
     admin_id = 980316238
     rarities = {
@@ -28,19 +30,22 @@ class Config():
         "common": {'name': 'Обычная', 'icon': '⚪️', 'chance': 69, 'compensation': 200, 'order': 4},
     }
 
-class ST():
+
+class ST:
     max_growth: float = 0.35
     min_growth: float = 0.1
     max_fall: float = 0.3
     min_fall: float = 0.08
     min_price: float = 50.0
 
-class V():
+
+class V:
     max_growth: float = 0.50
     min_growth: float = 0.15
     max_fall: float = 0.45
     min_fall: float = 0.05
     min_price: float = 500.0
+
 
 settings = Settings()
 config = Config()

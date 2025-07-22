@@ -1,16 +1,16 @@
-from aiogram import Router, Bot, F
-from aiogram.types import CallbackQuery, Message
+from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery
 
-from keyboards import inline, reply
-from database.queries import show_items, send_profile
+from database.queries import send_profile, show_items
+from keyboards import inline
 
 router = Router()
+
 
 @router.callback_query()
 async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
-    username = call.from_user.username
 
     if call.data == "cancel":
         await state.clear()

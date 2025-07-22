@@ -5,22 +5,22 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from handlers import commands, messages
 from callbacks import common, trade
-from database.queries import change_all_coins
-from middlewares.check_user import UserCheckMiddleware
-from middlewares.antiflood import AntifloodMiddleware
-
 from config_reader import settings
-
 from database.core import db
+from database.queries import change_all_coins
+from handlers import commands, messages
 from keep_alive import keep_alive
+from middlewares.antiflood import AntifloodMiddleware
+from middlewares.check_user import UserCheckMiddleware
 
 keep_alive()
+
 
 async def scheduled_task(bot: Bot):
     while True:
         await change_all_coins(bot)
+
 
 async def main():
     bot = Bot(settings.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))

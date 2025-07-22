@@ -1,8 +1,11 @@
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from aiogram import BaseMiddleware
-from aiogram.types import TelegramObject
 from aiogram.dispatcher.flags import get_flag
-from typing import Callable, Awaitable, Dict, Any
+from aiogram.types import TelegramObject
 from cachetools import TTLCache
+
 
 class AntifloodMiddleware(BaseMiddleware):
     def __init__(self, time_limit: int = 2, warn_cooldown: int = 10) -> None:
@@ -11,9 +14,9 @@ class AntifloodMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any]
+        data: dict[str, Any]
     ) -> Any:
         throttling_key = get_flag(data, "throttling_key") or "antiflood"
 

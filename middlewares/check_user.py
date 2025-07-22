@@ -1,19 +1,22 @@
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from aiogram import BaseMiddleware
-from aiogram.types import Message, CallbackQuery, TelegramObject
-from typing import Callable, Awaitable, Dict, Any, Union
+from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from database.queries import check_profile
 from states.enums import UserStatus
 
+
 class UserCheckMiddleware(BaseMiddleware):
     def __init__(self):
-        self.skip_commands = {"/start", "/shut"} # commands for skip checking
-        self.skip_messages = {"💲 открыть брокерский счёт"} # messages for skip checking
+        self.skip_commands = {"/start", "/shut"}  # commands for skip checking
+        self.skip_messages = {"💲 открыть брокерский счёт"}  # messages for skip checking
 
     async def __call__(self,
-            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+            handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
             event: TelegramObject,
-            data: Dict[str, Any]
+            data: dict[str, Any]
         ):
         if isinstance(event, Message):
             user_id = event.from_user.id

@@ -1,21 +1,21 @@
-from aiogram import Router, Bot, F
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup
-from aiogram.fsm.context import FSMContext
+import random as rn
+from asyncio import sleep as asleep
+from json import dumps, loads
 
+import prettytable as pt
+from aiogram import Bot
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from dotenv import load_dotenv
+
+from config_reader import config
 from database.core import db
-from states.enums import UserStatus, InterCurrency, CoinActions
 from keyboards.inline import agree_buttons, profile_buttons
 from keyboards.reply import main
-from config_reader import config, st, v
-
-from dotenv import load_dotenv
-import random as rn
-from json import loads, dumps
-from asyncio import sleep as asleep
-import prettytable as pt
-from typing import List, Tuple, Union
+from states.enums import CoinActions, UserStatus
 
 load_dotenv()
+
 
 async def register(id, username) -> UserStatus:
     """
@@ -35,6 +35,7 @@ async def register(id, username) -> UserStatus:
     else:
         return status
 
+
 async def get_profile(id) -> dict | UserStatus:
     """
     Функция для получения профиля юзера, при его отсутствии возвращает соотстветствующий UserStatus
@@ -50,6 +51,7 @@ async def get_profile(id) -> dict | UserStatus:
 
     else:
         return status
+
 
 async def check_profile(id: int) -> UserStatus:
     """
@@ -68,6 +70,7 @@ async def check_profile(id: int) -> UserStatus:
     else:
         return UserStatus.ERROR
 
+
 async def diff_convert(diff: float) -> str:
     """
     Функция для конвертации чисел типа 50.3 в str "+50.3%"
@@ -77,12 +80,10 @@ async def diff_convert(diff: float) -> str:
     """
     diff = round(diff, 2)
 
-    if diff >= 0:
-        text = f"+{diff}%"
-    else:
-        text = f"{diff}%"
+    text = f"+{diff}%" if diff >= 0 else f"{diff}%"
 
     return text
+
 
 async def get_price(name: str, is_round: bool = True) -> dict:
     """
@@ -97,15 +98,13 @@ async def get_price(name: str, is_round: bool = True) -> dict:
     data = await db.select_data("coins", ["cost", "diff", "trend_score"], {"name": name})
 
     if data:
-        if is_round:
-            cost = round(data['cost'], 2)
-        else:
-            cost = data['cost']
+        cost = round(data['cost'], 2) if is_round else data['cost']
 
         diff = await diff_convert(data['diff'])
         new_data = {"name": name, "cost": cost, "diff": diff, "trend_score": data['trend_score']}
 
         return new_data
+
 
 async def change_trend_score(name: str, new_score: float) -> None:
     data = await get_price(name)
@@ -114,6 +113,7 @@ async def change_trend_score(name: str, new_score: float) -> None:
     new_score = max(min(new_score, 100), -100)
 
     await db.update_data("coins", {"trend_score": new_score}, {"name": name})
+
 
 async def change_coin(name: str, bot: Bot) -> None:
     """
@@ -140,23 +140,16 @@ async def change_coin(name: str, bot: Bot) -> None:
     roll = rn.uniform(1, 100)
 
     if roll <= chance:
-        if trend_score > 0: # MAX UP
-            random_percent = round(max_growth, 4)
-        else: # MAX DOWN
-            random_percent = round(-max_fall, 4)
+        random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
 
         await bot.send_message(config.admin_id, f"<b>Валюта {name} резко изменила цену из-за trend points</b>", reply_markup=main)
         await change_trend_score(name, 0)
-    elif coin_info['cost'] <= min_price:
+    elif coin_info['cost'] <= min_price or rn.choice([True, False]):
         random_percent = round(rn.uniform(min_growth, max_growth), 4)
         await change_trend_score(name, random_percent * 10)
     else:
-        if rn.choice([True, False]):
-            random_percent = round(rn.uniform(min_growth, max_growth), 4)
-            await change_trend_score(name, random_percent * 10)
-        else:
-            random_percent = round(-rn.uniform(min_fall, max_fall), 4)
-            await change_trend_score(name, random_percent * 10)
+        random_percent = round(-rn.uniform(min_fall, max_fall), 4)
+        await change_trend_score(name, random_percent * 10)
 
     new_price = round(coin_info['cost'] * (1 + random_percent), 4)
     new_diff_percent = round(random_percent * 100, 4)
@@ -165,6 +158,7 @@ async def change_coin(name: str, bot: Bot) -> None:
         await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>", reply_markup=main)
     
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
+
 
 async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, include_diff: bool = False) -> str:
     """
@@ -191,6 +185,7 @@ async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, in
     text = f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n<b>Текущий баланс:</b> {balance} {balance_label}\n<b>Текущая цена:</b> ~{price['cost']} RUB {diff}"
 
     return text
+
 
 async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None:
     """
@@ -220,14 +215,14 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         return
     elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            await message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
+            await message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
         else:
             remaining = user_data['rubles'] - last_price
             text = f"После покупки <b>{amount} {currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            await message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
+            await message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
         else:
             text = f"После продажи <b>{amount} {currency.upper()}</b> на балансе прибавится <b>~{last_price:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
@@ -236,6 +231,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         return
     
     await message.answer(text, reply_markup=agree_buttons)
+
 
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     """
@@ -264,7 +260,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         return
     elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            await call.message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
+            await call.message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
         else:
             balance_rubles: float = user_data['rubles'] - last_price
@@ -275,7 +271,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            await call.message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
+            await call.message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
         else:
             balance_rubles: float = user_data['rubles'] + last_price
@@ -286,6 +282,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     await state.clear()
     await call.message.answer(text)
+
 
 async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_free: bool = False) -> None:
     """
@@ -319,6 +316,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     ruble_balance = profile['rubles']
     compensation_total = 0
 
+    lucky_chance = 0.1  # 10%
+
     rarities = list(config.rarities.keys())
     weights = [config.rarities[r]['chance'] for r in rarities]
 
@@ -335,7 +334,6 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
         selected_rarity = rn.choices(rarities, weights=weights, k=1)[0]
         rarity_conf = config.rarities[selected_rarity]
 
-        # Сравниваем по английскому ключу (в БД указана русская редкость — нужно соответствие!)
         rarity_name = rarity_conf['name']
         available_items = [item for item in all_items if str(item['rarity']) == rarity_name]
         if not available_items:
@@ -361,7 +359,7 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
             f"{rarity_conf['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
         ))
 
-        if rn.random() < 0.9 and not is_free:
+        if rn.random() > lucky_chance and not is_free:
             boxes_left -= 1
 
     # Обновление данных
@@ -387,6 +385,7 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     )
 
     await call.message.answer(result_message)
+
 
 async def show_items(user_id: int, call: CallbackQuery, inline: InlineKeyboardMarkup):
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
@@ -427,6 +426,7 @@ async def show_items(user_id: int, call: CallbackQuery, inline: InlineKeyboardMa
 
     return await call.message.edit_text(text, reply_markup=inline.items_buttons)
 
+
 async def change_all_coins(bot: Bot):
     """
     Простая функция, которая получает рандомное время от 2.5 до 5 минут, а потом обновляет валюты
@@ -435,12 +435,10 @@ async def change_all_coins(bot: Bot):
 
     await change_coin('st', bot)
     await change_coin('v', bot)
-
-    print(f"Next update at {random_time}")
-
     await asleep(random_time)
 
-async def send_table(data: List[Tuple[str, Union[int, float, str], str]], total_sum: float) -> pt.PrettyTable:
+
+async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: float) -> pt.PrettyTable:
     """
     Функция для создания таблицы из данных в профиле
 
@@ -462,6 +460,7 @@ async def send_table(data: List[Tuple[str, Union[int, float, str], str]], total_
     table.add_row(['TOTAL', '', f'~{total_sum:.2f} RUB'])
 
     return table
+
 
 async def send_profile(user_id: int, username: str, message: Message | CallbackQuery) -> None:
     """
@@ -496,6 +495,7 @@ async def send_profile(user_id: int, username: str, message: Message | CallbackQ
     elif isinstance(message, CallbackQuery):
         await message.message.edit_text(text, reply_markup=profile_buttons)
         await message.answer()
+
 
 async def check_casino_balance(id):
     data = await db.select_data("users", "casino_pts", {"id": id})
