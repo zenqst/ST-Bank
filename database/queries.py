@@ -1,10 +1,10 @@
 from aiogram import Router, Bot, F
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 
 from database.core import db
 from states.enums import UserStatus, InterCurrency, CoinActions
-from keyboards.inline import agree_buttons
+from keyboards.inline import agree_buttons, profile_buttons
 from keyboards.reply import main
 from config_reader import config, st, v
 
@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 import random as rn
 from json import loads, dumps
 from asyncio import sleep as asleep
+import prettytable as pt
+from typing import List, Tuple, Union
 
 load_dotenv()
 
@@ -142,6 +144,8 @@ async def change_coin(name: str, bot: Bot) -> None:
             random_percent = round(max_growth, 4)
         else: # MAX DOWN
             random_percent = round(-max_fall, 4)
+
+        await bot.send_message(config.admin_id, f"<b>Валюта {name} резко изменила цену из-за trend points</b>", reply_markup=main)
         await change_trend_score(name, 0)
     elif coin_info['cost'] <= min_price:
         random_percent = round(rn.uniform(min_growth, max_growth), 4)
@@ -297,20 +301,16 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     profile = await get_profile(user_id)
 
     if not is_free and profile['box'] < amount:
-        await call.message.answer(f'<b>❌ Недостаточно BOX для открытия!</b>\n\n<b>Баланс:</b> {profile["box"]} BOX\n<b>Требуется:</b> {amount} BOX\n\n<i>Не забывайте, что все предметы являются вымышленными. Любые совпадения — случайны</i>')
+        await call.message.answer(
+            f"<b>❌ Недостаточно BOX для открытия!</b>\n\n"
+            f"<b>Баланс:</b> {profile['box']} BOX\n"
+            f"<b>Требуется:</b> {amount} BOX\n\n"
+            f"<i>Не забывайте, что все предметы являются вымышленными. Любые совпадения — случайны</i>"
+        )
         return
-
-    RARITY_CONFIG = {
-        "legendary": {'icon': '🟡', 'chance': 0.01, 'compensation': 1100, 'order': 0},
-        "mythic": {'icon': '🔴', 'chance': 2.99, 'compensation': 700, 'order': 1},
-        "epic": {'icon': '🟣', 'chance': 9, 'compensation': 500, 'order': 2},
-        "exotic": {'icon': '🟢', 'chance': 18, 'compensation': 300, 'order': 3},
-        "common": {'icon': '⚪️', 'chance': 70, 'compensation': 200, 'order': 4},
-    }
 
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     user_data = await db.select_data("users", "items", {"id": user_id})
-
     user_loot = loads(user_data['items']) if user_data and user_data['items'] else []
 
     obtained_items = []
@@ -319,8 +319,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     ruble_balance = profile['rubles']
     compensation_total = 0
 
-    rarities = list(RARITY_CONFIG.keys())
-    weights = [RARITY_CONFIG[r]['chance'] for r in rarities]
+    rarities = list(config.rarities.keys())
+    weights = [config.rarities[r]['chance'] for r in rarities]
 
     def find_loot_item(item_id):
         for item in user_loot:
@@ -333,9 +333,11 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
             break
 
         selected_rarity = rn.choices(rarities, weights=weights, k=1)[0]
-        config = RARITY_CONFIG[selected_rarity]
+        rarity_conf = config.rarities[selected_rarity]
 
-        available_items = [item for item in all_items if str(item['rarity']).lower() == selected_rarity]
+        # Сравниваем по английскому ключу (в БД указана русская редкость — нужно соответствие!)
+        rarity_name = rarity_conf['name']
+        available_items = [item for item in all_items if str(item['rarity']) == rarity_name]
         if not available_items:
             continue
 
@@ -347,38 +349,33 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
         loot_item = find_loot_item(item_id)
         if loot_item:
             loot_item['count'] += 1
-            compensation = config['compensation']
+            compensation = rarity_conf['compensation']
             ruble_balance += compensation
             compensation_total += compensation
-
             compensation_text = f"[+{compensation} RUB]"
+        else:
+            user_loot.append({'id': item_id, 'count': 1})
 
-        user_loot.append({'id': item_id, 'count': 1})
         obtained_items.append((
             selected_rarity,
-            f"{config['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
+            f"{rarity_conf['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
         ))
 
-        lucky = 0
-        if rn.random() < 0.9:
+        if rn.random() < 0.9 and not is_free:
             boxes_left -= 1
-            lucky += 1
-        
-        
 
+    # Обновление данных
     await db.update_data('users', {
         'items': dumps(user_loot),
         'rubles': ruble_balance,
         'box': boxes_left
     }, {'id': user_id})
 
-    obtained_items.sort(key=lambda x: RARITY_CONFIG[x[0]]['order'])
+    # Сортировка по order
+    obtained_items.sort(key=lambda x: config.rarities[x[0]]['order'])
     items_text = "\n".join(item[1] for item in obtained_items) or "— ничего не выпало —"
-    
-    comp_text = ""
 
-    if compensation_total > 0:
-        comp_text = f"[+{compensation_total} RUB]"
+    comp_text = f"[+{compensation_total} RUB]" if compensation_total > 0 else ""
 
     result_message = (
         "<b>🎉 Поздравляем!</b>\n\n"
@@ -386,10 +383,49 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
         f"{items_text}\n\n"
         "<i>После открытия изменился ваш баланс:</i>\n"
         f"<b>Баланс RUB:</b> {round(ruble_balance, 2)} <i>{comp_text}</i>\n"
-        f"<b>Баланс BOX:</b> {boxes_left} <i>[-{boxes_balance-boxes_left} BOX]</i>\n"
+        f"<b>Баланс BOX:</b> {boxes_left} <i>[-{boxes_balance - boxes_left} BOX]</i>\n"
     )
 
     await call.message.answer(result_message)
+
+async def show_items(user_id: int, call: CallbackQuery, inline: InlineKeyboardMarkup):
+    all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
+    res = await db.select_data("users", ["items"], {"id": user_id})
+
+    user_loot = loads(res['items']) if res and res['items'] else []
+
+    user_items_dict = {}
+    for user_item in user_loot:
+        user_items_dict[user_item['id']] = user_items_dict.get(user_item['id'], 0) + user_item.get('count', 0)
+
+    text = ""
+    for rarity_key, info in sorted(config.rarities.items(), key=lambda x: x[1]['order']):
+        name = info['name']
+        icon = info['icon']
+        chance = info['chance']
+
+        text += f"<b>{icon} {name} ({chance}%):</b> — "
+
+        available_items = [item for item in all_items if item['rarity'] == rarity_key]
+        item_count = len(available_items)
+
+        if user_items_dict:
+            count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
+
+            if count_with_user == 0:
+                text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+            else:
+                text += f"<b>{count_with_user}</b> из {item_count}\n"
+                for item in available_items:
+                    if user_items_dict.get(item['id'], 0) > 0:
+                        count = user_items_dict.get(item['id'], 0)
+                        text += f"{item['name']} <i>[{count} шт.]</i>\n"
+        else:
+            text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+
+        text += "\n"
+
+    return await call.message.edit_text(text, reply_markup=inline.items_buttons)
 
 async def change_all_coins(bot: Bot):
     """
@@ -403,6 +439,68 @@ async def change_all_coins(bot: Bot):
     print(f"Next update at {random_time}")
 
     await asleep(random_time)
+
+async def send_table(data: List[Tuple[str, Union[int, float, str], str]], total_sum: float) -> pt.PrettyTable:
+    """
+    Функция для создания таблицы из данных в профиле
+
+    :param data: Список данных о валютах
+    :param total_sum: Переменная, которая содержит подсчёт всего NET WORTH
+    :return: Таблица (prettyTable)
+    """
+
+    table = pt.PrettyTable(['Название', 'Количество', 'Стоимость'])
+    table.align['Название'] = 'l'
+    table.align['Количество'] = 'r'
+    table.align['Стоимость'] = 'r'
+
+    for symbol, amount, cost in data:
+        table.add_row([symbol, f'{amount:.2f}' if isinstance(amount, (int, float)) else amount, cost])
+        if isinstance(cost, str) and 'RUB' in cost:
+            try:
+                value = float(cost.replace('~', '').replace('RUB', '').strip())
+            except:
+                pass
+
+    table.add_row(['-' * 10, '-' * 10, '-' * 15])
+
+    table.add_row(['TOTAL', '', f'~{total_sum:.2f} RUB'])
+
+    return table
+
+async def send_profile(user_id: int, username: str, message: Message | CallbackQuery) -> None:
+    """
+    Функция для отправки сообщения с профилем
+
+    :param user_id: Айди юзера
+    :param username: Никнейм юзера
+    :param message: Message или CallbackQuery (зависит от расположения функции)
+    :return: None
+    """
+
+    data = await get_profile(user_id)
+
+    st_price = await get_price("st")
+    v_price = await get_price("v")
+
+    st_value = st_price['cost'] * data['st']
+    v_value = v_price['cost'] * data['v']
+    total_value = data['rubles'] + st_value + v_value
+
+    table = await send_table([
+        ('RUB', data['rubles'], '—'),
+        ('ST', data['st'], f'~{round(st_value, 2)} RUB'),
+        ('V', data['v'], f'~{round(v_value, 2)} RUB'),
+        ('BOX', data['box'], '—')
+    ], total_value)
+
+    text = f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
+
+    if isinstance(message, Message):
+        await message.answer(text, reply_markup=profile_buttons)
+    elif isinstance(message, CallbackQuery):
+        await message.message.edit_text(text, reply_markup=profile_buttons)
+        await message.answer()
 
 async def check_casino_balance(id):
     data = await db.select_data("users", "casino_pts", {"id": id})

@@ -4,6 +4,7 @@
         "config",
         "messages",
         "coins",
-        "requirements"
+        "requirements",
+        "middlewares"
     ]
 }

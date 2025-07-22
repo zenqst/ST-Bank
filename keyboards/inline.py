@@ -16,10 +16,7 @@ class BoxCallback(CallbackData, prefix="box"):
 profile_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="📜 Список предметов [WIP]", callback_data='items')
-        ],
-        [
-            InlineKeyboardButton(text='🗄 График изменений валют [WIP]', url='https://docs.google.com/spreadsheets/d/13eaUPw-ceQUmeU31WwC4MiU4kM7-RCwPgbzco-xCuAA/edit?usp=sharing')
+            InlineKeyboardButton(text="📜 Список предметов", callback_data='items')
         ],
         [
             InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenqst")
@@ -96,6 +93,14 @@ box_buttons = InlineKeyboardMarkup(
         ],
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel"),
+        ],
+    ]
+)
+
+items_buttons = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⬅️ Вернуться", callback_data='return_profile')
         ],
     ]
 )
