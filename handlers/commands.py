@@ -7,9 +7,10 @@ from os import _exit as exit
 import asyncio
 from logging import error
 from asyncio import sleep
+from random import uniform, randint
 
 from config_reader import config
-from database.queries import check_profile, check_casino_balance, change_coin
+from database.queries import check_profile, check_casino_balance, change_coin, open_box
 from database.core import db
 from states.enums import UserStatus
 from states.fsm_states import Interaction
@@ -33,12 +34,21 @@ async def start(message: Message):
 async def check(message: Message, state: FSMContext):
     status = await check_profile(message.from_user.id)
     data = await state.get_data()
+    random_nu = uniform(2.50, 5.00)
 
-    await message.answer(f"Текущий статус: {status}\n\nДанные Interaction: {data}")
+    nu = randint(1, 100) <= 70
+
+    await message.answer(f"Текущий статус: {status}\n\nДанные Interaction: {data}\n\nRandom: {random_nu} | {nu} ", parse_mode = None)
     
 @router.message(Command("change"))
-async def change(message: Message, state: FSMContext, bot: Bot):
+async def change(bot: Bot):
     await change_coin("st", bot)
+
+@router.message(Command("open"))
+async def open_box_handler(message: Message, command: CommandObject):
+    amount = int(command.args)
+
+    await open_box(message.from_user.id, message, amount = amount, is_free = True)
 
 @router.message(Command("game"))
 async def handler_game(message: Message): 

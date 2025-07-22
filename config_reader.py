@@ -18,17 +18,28 @@ class Settings(BaseSettings):
     )
     
 class Config():
-    version = 'v0.9',
+    version = 'v0.10',
     admin_id = 980316238
+    rarities = {
+        "legendary": {'name': 'Легендарная', 'icon': '🟡', 'chance': 1, 'compensation': 1100, 'order': 0},
+        "mythic": {'name': 'Мифическая', 'icon': '🔴', 'chance': 3, 'compensation': 700, 'order': 1},
+        "epic": {'name': 'Эпическая', 'icon': '🟣', 'chance': 9, 'compensation': 500, 'order': 2},
+        "exotic": {'name': 'Экзотическая', 'icon': '🟢', 'chance': 18, 'compensation': 300, 'order': 3},
+        "common": {'name': 'Обычная', 'icon': '⚪️', 'chance': 69, 'compensation': 200, 'order': 4},
+    }
 
 class ST():
-    max_growth: float = 0.3
+    max_growth: float = 0.35
+    min_growth: float = 0.1
     max_fall: float = 0.3
+    min_fall: float = 0.08
     min_price: float = 50.0
 
 class V():
-    max_growth: float = 0.45
+    max_growth: float = 0.50
+    min_growth: float = 0.15
     max_fall: float = 0.45
+    min_fall: float = 0.05
     min_price: float = 500.0
 
 settings = Settings()

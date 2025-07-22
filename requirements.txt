@@ -1,5 +1,6 @@
 aiogram==3.21.0
 asyncpg==0.30.0
+cachetools==5.5.2
 Flask==3.1.1
 prettytable==3.16.0
 pydantic==2.11.7
