@@ -232,7 +232,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         else:
             text = f"После продажи <b>{amount} {currency.upper()}</b> на балансе прибавится <b>~{last_price:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
     else:
-        await message.answer(f'<b>❌ Неизвестный тип транзакции [{data['type']}]</b>')
+        await message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
     
     await message.answer(text, reply_markup=agree_buttons)

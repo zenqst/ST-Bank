@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
     
 class Config():
-    version = 'v0.10',
+    version = 'v0.10.1',
     admin_id = 980316238
     rarities = {
         "legendary": {'name': 'Легендарная', 'icon': '🟡', 'chance': 1, 'compensation': 1100, 'order': 0},
