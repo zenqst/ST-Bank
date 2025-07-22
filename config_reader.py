@@ -22,13 +22,17 @@ class Config():
     admin_id = 980316238
 
 class ST():
-    max_growth: float = 0.3
+    max_growth: float = 0.4
+    min_growth: float = 0.1
     max_fall: float = 0.3
+    min_fall: float = 0.08
     min_price: float = 50.0
 
 class V():
-    max_growth: float = 0.45
+    max_growth: float = 0.55
+    min_growth: float = 0.15
     max_fall: float = 0.45
+    min_fall: float = 0.05
     min_price: float = 500.0
 
 settings = Settings()

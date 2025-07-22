@@ -10,8 +10,8 @@ from config_reader import config, st, v
 
 from dotenv import load_dotenv
 import random as rn
-from typing import Dict, List, Tuple
 from json import loads, dumps
+from asyncio import sleep as asleep
 
 load_dotenv()
 
@@ -88,11 +88,11 @@ async def get_price(name: str, is_round: bool = True) -> dict:
 
     :param name: Название валюты
     :param is_round: bool-значение. При состоянии True, cost будет округляться
-    :return: dict, который содержит в себе name, cost, diff
+    :return: dict, который содержит в себе name, cost, diff, trend_score
     """
 
     name = name.lower()
-    data = await db.select_data("coins", ["cost", "diff"], {"name": name})
+    data = await db.select_data("coins", ["cost", "diff", "trend_score"], {"name": name})
 
     if data:
         if is_round:
@@ -101,9 +101,17 @@ async def get_price(name: str, is_round: bool = True) -> dict:
             cost = data['cost']
 
         diff = await diff_convert(data['diff'])
-        new_data = {"name": name, "cost": cost, "diff": diff}
+        new_data = {"name": name, "cost": cost, "diff": diff, "trend_score": data['trend_score']}
 
         return new_data
+
+async def change_trend_score(name: str, new_score: float) -> None:
+    data = await get_price(name)
+
+    new_score: float = (data['trend_score'] + new_score) * 0.9
+    new_score = max(min(new_score, 100), -100)
+
+    await db.update_data("coins", {"trend_score": new_score}, {"name": name})
 
 async def change_coin(name: str, bot: Bot) -> None:
     """
@@ -116,17 +124,37 @@ async def change_coin(name: str, bot: Bot) -> None:
     coin: object = globals()[name]
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
-    min_price: float = float(coin.min_price)
+    min_price: float = coin.min_price
+    min_growth: float = coin.min_growth
+    min_fall: float = coin.min_fall
 
-    curr_price = await get_price(name, is_round=False)
+    coin_info = await get_price(name, is_round=False)
 
-    if curr_price['cost'] <= min_price:
-        random_percent = round(rn.uniform(0.01, max_growth), 4)
+    trend_score: float = coin_info['trend_score']
+
+    score = abs(trend_score)
+    chance = min(100, score)
+
+    roll = rn.uniform(1, 100)
+
+    if roll <= chance:
+        if trend_score > 0: # MAX UP
+            random_percent = round(max_growth, 4)
+        else: # MAX DOWN
+            random_percent = round(-max_fall, 4)
+        await change_trend_score(name, 0)
+    elif coin_info['cost'] <= min_price:
+        random_percent = round(rn.uniform(min_growth, max_growth), 4)
+        await change_trend_score(name, random_percent * 10)
     else:
-        random_percent = round(rn.uniform(-max_fall, max_growth), 4)
+        if rn.choice([True, False]):
+            random_percent = round(rn.uniform(min_growth, max_growth), 4)
+            await change_trend_score(name, random_percent * 10)
+        else:
+            random_percent = round(-rn.uniform(min_fall, max_fall), 4)
+            await change_trend_score(name, random_percent * 10)
 
-
-    new_price = round(curr_price['cost'] * (1 + random_percent), 4)
+    new_price = round(coin_info['cost'] * (1 + random_percent), 4)
     new_diff_percent = round(random_percent * 100, 4)
 
     if name == "v":
@@ -362,6 +390,19 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     )
 
     await call.message.answer(result_message)
+
+async def change_all_coins(bot: Bot):
+    """
+    Простая функция, которая получает рандомное время от 2.5 до 5 минут, а потом обновляет валюты
+    """
+    random_time = rn.randint(150, 300)
+
+    await change_coin('st', bot)
+    await change_coin('v', bot)
+
+    print(f"Next update at {random_time}")
+
+    await asleep(random_time)
 
 async def check_casino_balance(id):
     data = await db.select_data("users", "casino_pts", {"id": id})

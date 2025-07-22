@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 
 from handlers import commands, messages
 from callbacks import common, trade
-from database.queries import change_coin
+from database.queries import change_all_coins
 from middlewares.check_user import UserCheckMiddleware
 
 from config_reader import settings
@@ -19,9 +19,7 @@ keep_alive()
 
 async def scheduled_task(bot: Bot):
     while True:
-        await change_coin('st', bot)
-        await change_coin('v', bot)
-        await asyncio.sleep(300)
+        await change_all_coins(bot)
 
 async def main():
     bot = Bot(settings.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
