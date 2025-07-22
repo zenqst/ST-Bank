@@ -456,11 +456,6 @@ async def send_table(data: List[Tuple[str, Union[int, float, str], str]], total_
 
     for symbol, amount, cost in data:
         table.add_row([symbol, f'{amount:.2f}' if isinstance(amount, (int, float)) else amount, cost])
-        if isinstance(cost, str) and 'RUB' in cost:
-            try:
-                value = float(cost.replace('~', '').replace('RUB', '').strip())
-            except:
-                pass
 
     table.add_row(['-' * 10, '-' * 10, '-' * 15])
 
