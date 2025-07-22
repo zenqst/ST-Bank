@@ -10,7 +10,7 @@
 
 ---
 
-**ST Bank** is a Telegram-based virtual economy bot written in Python. It features coin trading, dynamic pricing, and user inventory management backed by PostgreSQL and integrated with Google Sheets for logging.
+**ST Bank** is a Telegram-based virtual economy bot written in Python. It features coin trading, dynamic pricing, and user inventory management backed by PostgreSQL.
 
 ---
 
@@ -21,8 +21,6 @@
 - Dynamic coin price updates with random growth or decline
 - Purchase of boxes (inventory items)
 - Profile view with real-time balances
-- Coin price logging to Google Sheets
-- Admin notifications and controls
 - Telegram bot interaction for all commands
 
 ---
@@ -136,8 +134,8 @@ I welcome contributions. Please follow these steps:
 
 ## 📧 Contact
 
--   Maintainer: [@zenqst](https://github.com/zenqst])
--   Issues: Please use the [GitHub Issue Tracker](https://github.com/zenqst/ST-Bank/issues)
+- Maintainer: [@zenqst](https://github.com/zenqst])
+- Issues: Please use the [GitHub Issue Tracker](https://github.com/zenqst/ST-Bank/issues)
 - Bot: [@ST_Bank_bot](https://t.me/ST_Bank_bot])
     
 
