@@ -11,18 +11,12 @@ class StatusMessages(Enum):
     REQUEST_ERROR = "Request error"
     REQUEST_WITHOUT = "Request w/o WHERE"
 
-class InterActions(Enum):
+class CoinActions(Enum):
     BUY = 'buy'
     SELL = 'sell'
+    OPEN = 'open'
 
 class InterCurrency(Enum):
     ST = 'st'
     V = 'v'
     BOX = 'box'
-
-class BoxRarity(Enum):
-    LEGENDARY = 'legendary'
-    MYTHIC = 'mythic'
-    EPIC = 'epic'
-    EXOTIC = 'exotic'
-    COMMON = 'common'

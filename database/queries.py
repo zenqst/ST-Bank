@@ -3,12 +3,13 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 from database.core import db
-from states.enums import UserStatus, InterActions, InterCurrency, BoxRarity
+from states.enums import UserStatus, InterCurrency, CoinActions
 from keyboards.inline import agree_buttons
+from keyboards.reply import main
 from config_reader import config, st, v
 
 from dotenv import load_dotenv
-from random import uniform, randint, random, choices, choice
+import random as rn
 from typing import Dict, List, Tuple
 from json import loads, dumps
 
@@ -120,35 +121,35 @@ async def change_coin(name: str, bot: Bot) -> None:
     curr_price = await get_price(name, is_round=False)
 
     if curr_price['cost'] <= min_price:
-        random_percent = round(uniform(0.01, max_growth), 4)
+        random_percent = round(rn.uniform(0.01, max_growth), 4)
     else:
-        random_percent = round(uniform(-max_fall, max_growth), 4)
+        random_percent = round(rn.uniform(-max_fall, max_growth), 4)
 
 
     new_price = round(curr_price['cost'] * (1 + random_percent), 4)
     new_diff_percent = round(random_percent * 100, 4)
 
     if name == "v":
-        await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>")
+        await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>", reply_markup=main)
     
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
 
-async def build_amount_prompt(id: int, action: InterActions, currency: str, *, include_diff: bool = False) -> str:
+async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, include_diff: bool = False) -> str:
     """
     Функция, конвертирующая набор данных в определённый текст (при покупке/продаже)
 
     :param id: Айди пользователя
-    :param action: InterActions (buy/sell)
+    :param action: CoinActions (buy/sell)
     :param currency: Название валюты
     :param include_diff: bool-значение. При True в строчке появляется процент изменений
     :return: str-text
     """
-    verb = {InterActions.BUY:  "приобрести", InterActions.SELL: "продать"}[action]
+    verb = {CoinActions.BUY:  "приобрести", CoinActions.SELL: "продать"}[action]
 
     user_data = await get_profile(id)
     balance, balance_label = (
         (user_data["rubles"], "RUB")
-        if action == InterActions.BUY
+        if action == CoinActions.BUY
         else (user_data[currency], currency.upper())
     )
 
@@ -178,8 +179,6 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
     price_data = await get_price(currency, is_round=False)
     user_data = await get_profile(user_id)
 
-    print(f"💰 user_data['rubles'] type: {type(user_data['rubles'])}, value: {user_data['rubles']}")
-
     last_price = price_data['cost'] * amount
 
     await bot.delete_message(chat_id=message.chat.id, message_id=data['msg_id'])
@@ -187,19 +186,22 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
     if amount <= 0:
         await message.answer('<b>❌ Число должно быть больше 0</b>')
         return
-    elif data['type'] == InterActions.BUY:
+    elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
             await message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
         else:
             remaining = user_data['rubles'] - last_price
-            text = f"После покупки <b>{amount}{currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
-    elif data['type'] == InterActions.SELL:
+            text = f"После покупки <b>{amount} {currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
+    elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
             await message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
         else:
-            text = f"После продажи <b>{amount}{currency.upper()}</b> на балансе прибавится <b>~{last_price:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
+            text = f"После продажи <b>{amount} {currency.upper()}</b> на балансе прибавится <b>~{last_price:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
+    else:
+        await message.answer(f'<b>❌ Неизвестный тип транзакции [{data['type']}]</b>')
+        return
     
     await message.answer(text, reply_markup=agree_buttons)
 
@@ -228,7 +230,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     if amount <= 0:
         await call.message.answer('<b>❌ Число должно быть больше 0</b>')
         return
-    elif data['type'] == InterActions.BUY:
+    elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
             await call.message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
@@ -239,7 +241,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
             
             await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
 
-    elif data['type'] == InterActions.SELL:
+    elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
             await call.message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
@@ -253,164 +255,113 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await call.message.answer(text)
 
-RARITY_CONFIG: Dict[BoxRarity, Dict] = {
-    BoxRarity.LEGENDARY: {
-        'icon': '🟡',
-        'chance': 1,
-        'compensation': 1100,
-        'order': 0
-    },
-    BoxRarity.MYTHIC: {
-        'icon': '🔴',
-        'chance': 4,
-        'compensation': 700,
-        'order': 1
-    },
-    BoxRarity.EPIC: {
-        'icon': '🟣',
-        'chance': 20,
-        'compensation': 500,
-        'order': 2
-    },
-    BoxRarity.EXOTIC: {
-        'icon': '🟢',
-        'chance': 30,
-        'compensation': 300,
-        'order': 3
-    },
-    BoxRarity.COMMON: {
-        'icon': '⚪️',
-        'chance': 45,
-        'compensation': 200,
-        'order': 4
-    }
-}
+async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_free: bool = False) -> None:
+    """
+    Функция для открытия ящиков
 
-async def open_box(user_id: int, message: Message, *, amount: int = 1, is_free: bool = False) -> None:
-    profile = await get_profile(id)
+    :param user_id: Юзер айди 
+    :param call: CallbackQuery
+    :param amount: Число открытых боксов, по умолчанию равно 1
+    :param is_free: При True отсутствует проверка на наличие Боксов. По умолчанию False
+    :return: None 
+    """
 
-    if profile['boxes'] < amount and is_free == False:
-        await message.answer(f'⚠️ Недостаточно боксов! У вас: {profile['boxes']}, нужно: {amount}')
+    profile = await get_profile(user_id)
+
+    if not is_free and profile['box'] < amount:
+        await call.message.answer(f'<b>❌ Недостаточно BOX для открытия!</b>\n\n<b>Баланс:</b> {profile["box"]} BOX\n<b>Требуется:</b> {amount} BOX\n\n<i>Не забывайте, что все предметы являются вымышленными. Любые совпадения — случайны</i>')
         return
 
     RARITY_CONFIG = {
-        "Легендарная": {
-            'icon': '🟡',
-            'chance': 1,
-            'compensation': 1100,
-            'order': 0
-        },
-        "Мифическая": {
-            'icon': '🔴',
-            'chance': 4,
-            'compensation': 700,
-            'order': 1
-        },
-        "Эпическая": {
-            'icon': '🟣',
-            'chance': 20,
-            'compensation': 500,
-            'order': 2
-        },
-        "Экзотическая": {
-            'icon': '🟢',
-            'chance': 30,
-            'compensation': 300,
-            'order': 3
-        },
-        "Обычная": {
-            'icon': '⚪️',
-            'chance': 45,
-            'compensation': 200,
-            'order': 4
-        }
+        "legendary": {'icon': '🟡', 'chance': 0.01, 'compensation': 1100, 'order': 0},
+        "mythic": {'icon': '🔴', 'chance': 2.99, 'compensation': 700, 'order': 1},
+        "epic": {'icon': '🟣', 'chance': 9, 'compensation': 500, 'order': 2},
+        "exotic": {'icon': '🟢', 'chance': 18, 'compensation': 300, 'order': 3},
+        "common": {'icon': '⚪️', 'chance': 70, 'compensation': 200, 'order': 4},
     }
 
-    all_items = await db.select_data("loot", ["id", "name", "rarity"], fetch_all=True)
-    user_data = await db.select_data("users", ["loot"], {"id": user_id})
-    
-    user_loot = loads(user_data['loot']) if user_data and user_data['loot'] else []
-    existing_ids = {item['id'] for item in user_loot if item.get('exist')}
+    all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
+    user_data = await db.select_data("users", "items", {"id": user_id})
 
-    # Подготовка структур для результатов
+    user_loot = loads(user_data['items']) if user_data and user_data['items'] else []
+
     obtained_items = []
-    boxes_left = profile['boxes']
-    st_balance = profile['st']
+    boxes_left = profile['box']
+    boxes_balance = profile['box']
+    ruble_balance = profile['rubles']
     compensation_total = 0
-    new_items = []
 
-    # Подготовка данных для случайного выбора
     rarities = list(RARITY_CONFIG.keys())
     weights = [RARITY_CONFIG[r]['chance'] for r in rarities]
 
-    # Главный цикл открытия боксов
+    def find_loot_item(item_id):
+        for item in user_loot:
+            if item.get('id') == item_id:
+                return item
+        return None
+
     for _ in range(amount):
-        # Выбор редкости
-        selected_rarity = choices(rarities, weights=weights, k=1)[0]
+        if boxes_left <= 0 and not is_free:
+            break
+
+        selected_rarity = rn.choices(rarities, weights=weights, k=1)[0]
         config = RARITY_CONFIG[selected_rarity]
-        
-        # Выбор предмета
-        available_items = [item for item in all_items if item[2] == selected_rarity]
+
+        available_items = [item for item in all_items if str(item['rarity']).lower() == selected_rarity]
         if not available_items:
             continue
-            
-        selected_item = choice(available_items)
-        item_id, item_name, _ = selected_item
-        
-        # Проверка дубликата
-        if item_id in existing_ids:
-            # Обработка дубликата
+
+        selected_item = rn.choice(available_items)
+        item_id = selected_item['id']
+        item_name = selected_item['name']
+
+        compensation_text = ""
+        loot_item = find_loot_item(item_id)
+        if loot_item:
+            loot_item['count'] += 1
             compensation = config['compensation']
-            st_balance += compensation
+            ruble_balance += compensation
             compensation_total += compensation
-            obtained_items.append((
-                selected_rarity,
-                f"{config['icon']} <b>{item_name}</b> (повторка +{compensation}ST)"
-            ))
-            boxes_left -= 1  # Бокс тратится всегда для дубликата
-        else:
-            # Новый предмет
-            new_items.append({'id': item_id, 'exist': True})
-            existing_ids.add(item_id)
-            obtained_items.append((
-                selected_rarity,
-                f"{config['icon']} <b>{item_name}</b>"
-            ))
-            
-            # Механика сохранения бокса (50% шанс)
-            if random() < 0.5:
-                boxes_left -= 1  # Бокс тратится только в 50% случаев
 
-    # Обновление данных пользователя
-    if new_items:
-        user_loot.extend(new_items)
-        await db.update_data('users', {
-            'loot': dumps(user_loot),
-            'st': st_balance,
-            'boxes': boxes_left
-        }, {'id': user_id})
-    else:
-        await db.update_data('users', {
-            'st': st_balance,
-            'boxes': boxes_left
-        }, {'id': user_id})
+            compensation_text = f"[+{compensation} RUB]"
 
-    # Сортировка результатов
+        user_loot.append({'id': item_id, 'count': 1})
+        obtained_items.append((
+            selected_rarity,
+            f"{config['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
+        ))
+
+        lucky = 0
+        if rn.random() < 0.9:
+            boxes_left -= 1
+            lucky += 1
+        
+        
+
+    await db.update_data('users', {
+        'items': dumps(user_loot),
+        'rubles': ruble_balance,
+        'box': boxes_left
+    }, {'id': user_id})
+
     obtained_items.sort(key=lambda x: RARITY_CONFIG[x[0]]['order'])
-    items_text = "\n".join(item[1] for item in obtained_items)
+    items_text = "\n".join(item[1] for item in obtained_items) or "— ничего не выпало —"
+    
+    comp_text = ""
 
-    # Формирование ответа
+    if compensation_total > 0:
+        comp_text = f"[+{compensation_total} RUB]"
+
     result_message = (
         "<b>🎉 Поздравляем!</b>\n\n"
-        "📦 Вы получили:\n"
+        f"<i>Открыв {amount} BOX, вы получили:</i>\n"
         f"{items_text}\n\n"
-        f"💰 ST: {st_balance} | 📦 Боксы: {boxes_left}"
+        "<i>После открытия изменился ваш баланс:</i>\n"
+        f"<b>Баланс RUB:</b> {round(ruble_balance, 2)} <i>{comp_text}</i>\n"
+        f"<b>Баланс BOX:</b> {boxes_left} <i>[-{boxes_balance-boxes_left} BOX]</i>\n"
     )
-    
-    if compensation_total > 0:
-        result_message += f"\n\n🎁 Компенсация за повторки: +{compensation_total}ST"
-    
-    await message.answer(result_message)
+
+    await call.message.answer(result_message)
 
 async def check_casino_balance(id):
     data = await db.select_data("users", "casino_pts", {"id": id})

@@ -3,11 +3,11 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 from states.fsm_states import Interaction
-from states.enums import InterCurrency, InterActions
+from states.enums import CoinActions
 
-from database.queries import get_profile, get_price, adv_interaction, build_amount_prompt, final_interaction
+from database.queries import get_profile, get_price, adv_interaction, build_amount_prompt, final_interaction, open_box
 from keyboards import inline, reply
-from keyboards.inline import ActionCallback, CurrencyCallback
+from keyboards.inline import ActionCallback, CurrencyCallback, BoxCallback
 
 router = Router()
 
@@ -39,6 +39,33 @@ async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback,
     await state.update_data(msg_id=msg.message_id)
 
     await state.set_state(Interaction.amount)
+
+@router.callback_query(BoxCallback.filter())
+async def box_handler(call: CallbackQuery, callback_data: BoxCallback, bot: Bot, state: FSMContext):
+    user_id = call.from_user.id
+
+    await bot.answer_callback_query(call.id)
+
+    if callback_data.type == CoinActions.BUY:
+        await state.set_state(Interaction.type)
+        await state.update_data(type=CoinActions.BUY)
+
+        await state.set_state(Interaction.currency)
+        await state.update_data(currency="box")
+
+        text = await build_amount_prompt(user_id, callback_data.type, 'box')
+        msg = await call.message.edit_text(text, reply_markup=inline.update_buttons)
+        
+        await state.set_state(Interaction.msg_id)
+        await state.update_data(msg_id=msg.message_id)
+
+        await state.set_state(Interaction.amount)
+
+    elif callback_data.type == CoinActions.OPEN:
+        await call.message.delete()
+        amount = callback_data.amount
+
+        await open_box(user_id, call, amount=amount, is_free=False)
 
 @router.callback_query(F.data == "update")
 async def update_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
