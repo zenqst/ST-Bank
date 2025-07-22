@@ -176,7 +176,7 @@ async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, in
     :param include_diff: bool-значение. При True в строчке появляется процент изменений
     :return: str-text
     """
-    verb = {CoinActions.BUY:  "приобрести", CoinActions.SELL: "продать"}[action]
+    verb = {CoinActions.BUY: "приобрести", CoinActions.SELL: "продать"}[action]
 
     user_data = await get_profile(id)
     balance, balance_label = (
