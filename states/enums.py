@@ -20,7 +20,8 @@ class CoinActions(Enum):
     OPEN = 'open'
 
 
-class InterCurrency(Enum):
+class Currencies(Enum):
     ST = 'st'
     V = 'v'
     BOX = 'box'
+    RUB = 'rub'

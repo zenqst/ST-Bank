@@ -14,7 +14,7 @@ from config_reader import Coin, config, st, v
 from database.core import db
 from keyboards.inline import agree_buttons, items_buttons, profile_buttons
 from keyboards.reply import main
-from states.enums import CoinActions, UserStatus
+from states.enums import CoinActions, Currencies, UserStatus
 from states.types import CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
@@ -81,6 +81,27 @@ async def diff_convert(diff: float) -> str:
 
     text = f"+{diff}%" if diff >= 0 else f"{diff}%"
 
+    return text
+
+
+async def create_insufficient_funds_msg(balance: float, need: float, currency: Currencies) -> str:
+    """
+    Функция для преобразования данных в строку "Недостаточно средств"
+
+    :param balance: Текущий баланс валюты
+    :param need: Кол-во требуемой валюты
+    :param currency: Сама валюта
+    :return: Строка "Недостаточно средств"
+    """
+    currency = currency.value.upper()
+
+    text = (
+        f"<b>❌ Недостаточно {currency}!</b>\n\n"
+        f"<b>Баланс:</b> {balance} {currency}\n"
+        f"<b>Требуется:</b> {need} {currency}\n\n"
+        f"<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
+    )
+    
     return text
 
 
@@ -219,14 +240,16 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         return
     elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            await message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
+            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            await message.answer(text)
             return
         else:
             remaining = user_data['rubles'] - last_price
             text = f"После покупки <b>{amount} {currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            await message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
+            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            await message.answer(text)
             return
         else:
             text = f"После продажи <b>{amount} {currency.upper()}</b> на балансе прибавится <b>~{last_price:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
@@ -264,14 +287,16 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            await call.message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
+            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            await call.message.answer(text)
             return
         balance_rubles = user_data['rubles'] - last_price
         balance_currency = user_data[currency] + amount
         action_word = "покупка"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            await call.message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
+            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            await call.message.answer(text)
             return
         balance_rubles = user_data['rubles'] + last_price
         balance_currency = user_data[currency] - amount
@@ -450,12 +475,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     profile = await get_profile(user_id)
 
     if not is_free and profile['box'] < amount:
-        await call.message.answer(
-            f"<b>❌ Недостаточно BOX для открытия!</b>\n\n"
-            f"<b>Баланс:</b> {profile['box']} BOX\n"
-            f"<b>Требуется:</b> {amount} BOX\n\n"
-            f"<i>Не забывайте, что все предметы являются вымышленными. Любые совпадения — случайны</i>"
-        )
+        text = await create_insufficient_funds_msg(profile['box'], amount, Currencies.BOX)
+        await call.message.answer(text)
         return
 
     user_data = await db.select_data("users", "items", {"id": user_id})
