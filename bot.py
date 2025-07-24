@@ -30,7 +30,7 @@ async def main():
 
     dp.message.middleware(UserCheckMiddleware())
     dp.callback_query.middleware(UserCheckMiddleware())
-    dp.message.middleware(AntifloodMiddleware(2))
+    dp.message.middleware(AntifloodMiddleware(1))
 
     dp.include_routers(
         commands.router,

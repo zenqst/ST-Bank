@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     db_pool_min: SecretStr
     db_pool_max: SecretStr
     notify_chat_id: SecretStr
+    github_token: SecretStr
+    github_repo: SecretStr
+    github_ref: SecretStr
 
     model_config: SettingsConfigDict = SettingsConfigDict(  # type: ignore[misc]
         env_file=".env",
