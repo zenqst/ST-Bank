@@ -160,11 +160,11 @@ async def change_coin(name: str, bot: Bot) -> None:
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
 
 
-async def build_amount_prompt(id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
+async def build_amount_prompt(user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
     """
     Функция, конвертирующая набор данных в определённый текст (при покупке/продаже)
 
-    :param id: Айди пользователя
+    :param user_id: Айди пользователя
     :param action: CoinActions (buy/sell)
     :param currency: Название валюты
     :param include_diff: bool-значение. При True в строчке появляется процент изменений
@@ -173,7 +173,7 @@ async def build_amount_prompt(id: int, action: CoinActions, currency: CurrencyKe
 
     verb = {CoinActions.BUY: "приобрести", CoinActions.SELL: "продать"}[action]
 
-    user_data = await get_profile(id)
+    user_data = await get_profile(user_id)
     balance, balance_label = (
         (user_data["rubles"], "RUB")
         if action == CoinActions.BUY
@@ -351,6 +351,41 @@ async def create_result_message(obtained_items: list[tuple[str, str]], amount: i
     return result_message
 
 
+async def get_available_items_by_rarity(all_items: list[dict], rarity_name: str) -> list[dict]:
+    """
+    Получить список предметов по редкости
+
+    :param all_items: Список всех предметов
+    :param rarity_name: Название редкости (str)
+    :return: Список предметов указанной редкости
+    """
+    return [item for item in all_items if str(item['rarity']) == rarity_name]
+
+
+async def handle_loot_item(user_loot: list[dict], item_id: int, rarity_conf: dict, ruble_balance: dict[str, int | float]) -> str:
+    """
+    Обработать добавление предмета в инвентарь пользователя,
+    начислить компенсацию если предмет уже есть
+
+    :param user_loot: Список предметов пользователя
+    :param item_id: ID предмета
+    :param rarity_conf: Конфигурация редкости предмета
+    :param ruble_balance: Баланс рублей (с компенсацией)
+    :return: Текст компенсации для вывода в сообщении
+    """
+    compensation_text = ""
+    loot_item = await find_loot_item(user_loot, item_id)
+    if loot_item:
+        loot_item['count'] += 1
+        compensation = rarity_conf['compensation']
+        ruble_balance['compensation'] += compensation
+        ruble_balance['balance'] += compensation
+        compensation_text = f"[+{compensation} RUB]"
+    else:
+        user_loot.append({'id': item_id, 'count': 1})
+    return compensation_text
+
+
 async def process_box_rewards(amount: int, boxes_balance: dict[str, int], ruble_balance: dict[str, int | float], user_loot: list[dict[str, Any]], is_free: bool) -> list[tuple[str, str]]:
     """
     Функция, которая открывает указанное количество боксов и возвращает список полученных предметов
@@ -360,9 +395,8 @@ async def process_box_rewards(amount: int, boxes_balance: dict[str, int], ruble_
     :param ruble_balance: Баланс RUB
     :param user_loot: Инвентарь пользователя
     :param is_free: Если True, не тратит боксы
-    :return: Список кортежей
+    :return: Список кортежей (редкость, описание предмета)
     """
-    
     obtained_items = []
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     rarities = list(config.rarities.keys())
@@ -377,7 +411,7 @@ async def process_box_rewards(amount: int, boxes_balance: dict[str, int], ruble_
         rarity_conf = config.rarities[selected_rarity]
 
         rarity_name = rarity_conf['name']
-        available_items = [item for item in all_items if str(item['rarity']) == rarity_name]
+        available_items = await get_available_items_by_rarity(all_items, rarity_name)
 
         if not available_items:
             continue
@@ -386,16 +420,7 @@ async def process_box_rewards(amount: int, boxes_balance: dict[str, int], ruble_
         item_id = selected_item['id']
         item_name = selected_item['name']
 
-        compensation_text = ""
-        loot_item = await find_loot_item(user_loot, item_id)
-        if loot_item:
-            loot_item['count'] += 1
-            compensation = rarity_conf['compensation']
-            ruble_balance['compensation'] += compensation
-            ruble_balance['balance'] += compensation
-            compensation_text = f"[+{compensation} RUB]"
-        else:
-            user_loot.append({'id': item_id, 'count': 1})
+        compensation_text = await handle_loot_item(user_loot, item_id, rarity_conf, ruble_balance)
 
         obtained_items.append((
             selected_rarity,
@@ -447,42 +472,63 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     await call.message.answer(result_message)
 
 
+async def build_rarity_section(
+    rarity_key: str,
+    info: dict,
+    all_items: list[dict],
+    user_items_dict: dict[int, int]
+) -> str:
+    """
+    Строит текст для одной редкости с учётом предметов пользователя
+
+    :param rarity_key: Ключ редкости
+    :param info: Информация о редкости (name, icon, chance, order)
+    :param all_items: Список всех предметов
+    :param user_items_dict: Словарь {item_id: count} пользователя
+    :return: Текст для данной редкости
+    """
+    name = info['name']
+    icon = info['icon']
+    chance = info['chance']
+
+    section_text = f"<b>{icon} {name} ({chance}%):</b> — "
+
+    available_items = [item for item in all_items if item['rarity'] == rarity_key]
+    item_count = len(available_items)
+
+    if user_items_dict:
+        count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
+
+        if count_with_user == 0:
+            section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+        else:
+            section_text += f"<b>{count_with_user}</b> из {item_count}\n"
+            for item in available_items:
+                count = user_items_dict.get(item['id'], 0)
+                if count > 0:
+                    section_text += f"{item['name']} <i>[{count} шт.]</i>\n"
+    else:
+        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+
+    section_text += "\n"
+
+    return section_text
+
+
 async def show_items(user_id: int, call: CallbackQuery):
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     res = await db.select_data("users", ["items"], {"id": user_id})
 
     user_loot = loads(res['items']) if res and res['items'] else []
 
-    user_items_dict: dict[int, int] = {}
+    user_items_dict = {}
     for user_item in user_loot:
         user_items_dict[user_item['id']] = user_items_dict.get(user_item['id'], 0) + user_item.get('count', 0)
 
     text = ""
     for rarity_key, info in sorted(config.rarities.items(), key=lambda x: x[1]['order']):
-        name = info['name']
-        icon = info['icon']
-        chance = info['chance']
-
-        text += f"<b>{icon} {name} ({chance}%):</b> — "
-
-        available_items = [item for item in all_items if item['rarity'] == rarity_key]
-        item_count = len(available_items)
-
-        if user_items_dict:
-            count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
-
-            if count_with_user == 0:
-                text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
-            else:
-                text += f"<b>{count_with_user}</b> из {item_count}\n"
-                for item in available_items:
-                    if user_items_dict.get(item['id'], 0) > 0:
-                        count = user_items_dict.get(item['id'], 0)
-                        text += f"{item['name']} <i>[{count} шт.]</i>\n"
-        else:
-            text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
-
-        text += "\n"
+        section = await build_rarity_section(rarity_key, info, all_items, user_items_dict)
+        text += section
 
     if isinstance(call.message, Message):
         return await call.message.edit_text(text, reply_markup=items_buttons)

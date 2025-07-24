@@ -3,7 +3,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from database.queries import send_profile, show_items
-from keyboards import inline
 
 router = Router()
 
@@ -19,7 +18,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     
     elif call.data == "items":
         await bot.answer_callback_query(call.id)
-        await show_items(user_id, call, inline)
+        await show_items(user_id, call)
 
     elif call.data == "return_profile":
         await bot.answer_callback_query(call.id)

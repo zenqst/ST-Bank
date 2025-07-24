@@ -1,8 +1,8 @@
 import asyncio
+import sys
 from asyncio import sleep
 from logging import error
 from random import uniform
-from sys import exit
 
 from aiogram import Bot, Router
 from aiogram.filters import Command, CommandObject, CommandStart
@@ -20,6 +20,9 @@ router = Router()
 
 @router.message(CommandStart())
 async def start(message: Message):
+    if message.from_user is None:
+        return
+
     user_id = message.from_user.id
     status = await check_profile(user_id)
     
@@ -78,4 +81,4 @@ async def shutdown_handler(message: Message):
 
 async def shutdown():   
     error("Bot shutdowned by command")
-    exit(0)
+    sys.exit(0)
