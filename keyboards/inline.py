@@ -63,17 +63,6 @@ update_buttons = InlineKeyboardMarkup(
     ]
 )
 
-last_chance_buttons = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🔝 Купить максимальное кол-во валюты", callback_data="update")
-        ],
-        [
-            InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
-        ],
-    ]
-)
-
 agree_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [

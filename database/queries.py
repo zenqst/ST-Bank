@@ -1,8 +1,9 @@
+import math
 import random as rn
 from asyncio import sleep as asleep
 from json import dumps, loads
 from typing import Any
-import math
+import secrets
 
 import prettytable as pt
 from aiogram import Bot
@@ -135,9 +136,17 @@ async def change_trend_score(name: str, score: float) -> None:
     await db.update_data("coins", {"trend_score": new_score}, {"name": name})
 
 
+async def secure_uniform(a: float, b: float) -> float:
+    """Безопасный аналог random.uniform для float."""
+    # secrets.randbelow работает только с int, поэтому имитируем float:
+    scale = 10**8
+    rand = secrets.randbelow(int((b - a) * scale)) / scale
+    return a + rand
+
+
 async def change_coin(name: str, bot: Bot) -> None:
     """
-    Функция для рандомного изменения стоимости валюты по названию
+    Функция для безопасного изменения стоимости валюты по названию.
 
     :param name: Название валюты (lower)
     :param bot: Bot
@@ -151,26 +160,28 @@ async def change_coin(name: str, bot: Bot) -> None:
     min_price: float = coin.min_price
     min_growth: float = coin.min_growth
     min_fall: float = coin.min_fall
-    
-    coin_info = await get_price(name, is_round=False)
 
+    coin_info = await get_price(name, is_round=False)
     trend_score: float = coin_info['trend_score']
 
     score = abs(trend_score)
     chance = min(100, score)
 
-    roll = rn.uniform(1, 100)
+    roll = secrets.randbelow(100) + 1  # 1–100 включительно
 
     if roll <= chance:
         random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
-
-        await bot.send_message(config.admin_id, f"<b>Валюта {name} резко изменила цену из-за trend points ({trend_score})</b>", reply_markup=main)
+        await bot.send_message(
+            config.admin_id,
+            f"<b>Валюта {name} резко изменила цену из-за trend points ({trend_score})</b>",
+            reply_markup=main
+        )
         await change_trend_score(name, 0)
-    elif coin_info['cost'] <= min_price or rn.choice([True, False]):
-        random_percent = round(rn.uniform(min_growth, max_growth), 4)
+    elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
+        random_percent = round(await secure_uniform(min_growth, max_growth), 4)
         await change_trend_score(name, random_percent * 10)
     else:
-        random_percent = round(-rn.uniform(min_fall, max_fall), 4)
+        random_percent = -round(await secure_uniform(min_fall, max_fall), 4)
         await change_trend_score(name, random_percent * 10)
 
     new_price = round(coin_info['cost'] * (1 + random_percent), 4)
@@ -178,7 +189,7 @@ async def change_coin(name: str, bot: Bot) -> None:
 
     if name == "v":
         await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>", reply_markup=main)
-    
+
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
 
 
@@ -460,7 +471,7 @@ async def process_box_rewards(amount: int, boxes_balance: dict[str, int], ruble_
             f"{rarity_conf['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
         ))
 
-        if rn.random() > lucky_chance and not is_free:
+        if secrets.randbelow(1_000_000) / 1_000_000 > lucky_chance and not is_free:
             boxes_balance['left'] -= 1
 
     return obtained_items
