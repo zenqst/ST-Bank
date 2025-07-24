@@ -5,6 +5,7 @@
         "messages",
         "coins",
         "requirements",
-        "middlewares"
+        "middlewares",
+        "core"
     ]
 }

@@ -1,29 +1,46 @@
-import asyncpg
-import os
-from dotenv import load_dotenv
 import logging
+import os
 import re
-from typing import Union
+
+import asyncpg
+from dotenv import load_dotenv
 
 from states.enums import StatusMessages
 
 load_dotenv()
+
+
+def get_env_int(name: str) -> int:
+    raw = os.getenv(name)
+    error_msg_missing = f"Env var {name} not set"
+    if raw is None:
+        msg = error_msg_missing
+        raise RuntimeError(msg)
+
+    try:
+        return int(raw)
+    except ValueError as err:
+        msg = f"Env var {name} is not a valid integer"
+        raise RuntimeError(msg) from err
+
 
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
-DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", 1))
-DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", 5))
+DB_POOL_MIN = get_env_int("DB_POOL_MIN")
+DB_POOL_MAX = get_env_int("DB_POOL_MAX")
 
 # checking for important vars
 required_env_vars = ["DB_USER", "DB_PASSWORD", "DB_NAME", "DB_HOST", "DB_PORT"]
 for var in required_env_vars:
     if os.getenv(var) is None:
-        raise RuntimeError(f"Environment variable {var} not installed")
+        text = f"Env var {var} not installed"
+        raise RuntimeError(text)
 
 ALLOWED_TABLES = {"users", "items", "coins"}
+
 
 def safe_identifier(identifier: str) -> str:
     """
@@ -33,12 +50,14 @@ def safe_identifier(identifier: str) -> str:
     if identifier == "*":
         return identifier
     if not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", identifier):
-        raise ValueError(f"Invalid name: {identifier}")
+        text = f"Invalid name: {identifier}"
+        raise ValueError(text)
     return identifier
+
 
 class DB:
     def __init__(self):
-        self.pool: Union[asyncpg.Pool, None] = None
+        self.pool: asyncpg.Pool | None = None
 
     async def connect(self):
         """
@@ -64,7 +83,7 @@ class DB:
             self.pool = None
             logging.info("The pool of connections is closed")
 
-    async def select_data(self, table: str, rows: Union[str, list[str]], identifiers: dict = None, fetch_all: bool = None):
+    async def select_data(self, table: str, rows: str | list[str], identifiers: dict = None, fetch_all: bool = None):
         """
         Функция для получения одной или нескольких строк из бд
 
@@ -85,7 +104,7 @@ class DB:
         if isinstance(rows, str) and rows != "*":
             rows = [rows]
 
-        if (rows == "*" or rows == ["*"]) and fetch_all != False:
+        if rows in ("*", ["*"]) and fetch_all:
             row_part = "*"
             fetch_all = True
         else:
@@ -94,7 +113,7 @@ class DB:
         try:
             async with self.pool.acquire() as con:
                 if identifiers:
-                    where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i+1}" for i, k in enumerate(identifiers.keys()))
+                    where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(identifiers.keys()))
                     query = f"SELECT {row_part} FROM {table} WHERE {where_clause}"
                     values = tuple(identifiers.values())
                 else:
@@ -127,8 +146,8 @@ class DB:
 
         try:
             async with self.pool.acquire() as con:
-                columns = ', '.join(safe_identifier(k) for k in values.keys())
-                placeholders = ', '.join(f"${i+1}" for i in range(len(values)))
+                columns = ', '.join(safe_identifier(k) for k in values)
+                placeholders = ', '.join(f"${i + 1}" for i in range(len(values)))
                 query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
                 await con.execute(query, *values.values())
         except Exception:
@@ -155,8 +174,8 @@ class DB:
 
         try:
             async with self.pool.acquire() as con:
-                set_clause = ', '.join(f"{safe_identifier(k)} = ${i+1}" for i, k in enumerate(values.keys()))
-                where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i+1+len(values)}" for i, k in enumerate(identifiers.keys()))
+                set_clause = ', '.join(f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(values.keys()))
+                where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i + 1 + len(values)}" for i, k in enumerate(identifiers.keys()))
                 query = f"UPDATE {table} SET {set_clause} WHERE {where_clause}"
                 params = tuple(values.values()) + tuple(identifiers.values())
                 await con.execute(query, *params)
@@ -183,12 +202,13 @@ class DB:
 
         try:
             async with self.pool.acquire() as con:
-                where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i+1}" for i, k in enumerate(identifiers.keys()))
+                where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(identifiers.keys()))
                 query = f"DELETE FROM {table} WHERE {where_clause}"
                 values = tuple(identifiers.values())
                 await con.execute(query, *values)
         except Exception:
             logging.exception(StatusMessages.REQUEST_ERROR)
             raise
+
 
 db = DB()

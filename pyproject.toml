@@ -1,0 +1,96 @@
+[project]
+name = "st-bank"
+version = "0.10.2"
+description = "Telegram-bot"
+authors = [
+    {name = "zenqst",email = "zenqst@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiogram (>=3.21.0,<4.0.0)",
+    "asyncpg (>=0.30.0,<0.31.0)",
+    "cachetools (>=6.1.0,<7.0.0)",
+    "flask (>=3.1.1,<4.0.0)",
+    "prettytable (>=3.16.0,<4.0.0)",
+    "pydantic (>=2.11.7,<3.0.0)",
+    "pydantic-settings (>=2.10.1,<3.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "mypy (>=1.17.0,<2.0.0)",
+    "types-cachetools (>=6.1.0.20250717,<7.0.0.0)",
+    "millify (>=0.1.1,<0.2.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# Максимальная длина строки
+line-length = 100
+
+# Целевая версия Python
+target-version = "py311"
+
+# Включённые правила (базовые + лучшие практики)
+select = [
+    "E",      # pycodestyle (ошибки стиля)
+    "F",      # pyflakes (ошибки логики)
+    "B",      # flake8-bugbear (антипаттерны)
+    "I",      # isort (сортировка импортов)
+    "UP",     # pyupgrade (современный стиль Python)
+    "N",      # pep8-naming
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "TID",    # tidy imports (запрет *, абсолютные импорты)
+    "T20",    # flake8-print (запрет print)
+    "DTZ",    # flake8-datetimez (наивные datetime)
+    "TRY",    # flake8-tryceratops (ошибки в try/except)
+    "EM",     # flake8-errmsg (форматирование сообщений ошибок)
+    "PL",     # pylint совместимые правила
+    "PGH",    # pygrep-hooks (например, TODO в коде)
+    "SLF",    # flake8-self (обращения к приватным полям)
+    "EXE",    # executable file checks (бит на исполняемость)
+    "ICN",    # flake8-import-conventions
+    "ARG",    # flake8-unused-arguments
+]
+# Игнорирование длинных строк (можно включить, если хочешь ручной контроль)
+ignore = ["E501", "PLR0911"]
+
+# Каталоги и файлы, исключаемые из анализа
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "migrations"
+]
+
+# Всегда применять исправления, если указано `--fix`
+fix = true
+
+# Использовать preview-функции Ruff (рекомендуется)
+preview = true
+
+# Форматирование как у black (с версии Ruff >= 0.4)
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+
+# Настройка isort через Ruff
+[tool.ruff.isort]
+combine-as-imports = true
+force-single-line = false
+known-first-party = ["callbacks", "database", "handlers", "keyboards", "middlewares", "states", "utils"]  # замените на название своих модулей
+
+[tool.ruff.per-file-ignores]
+"tests/*" = ["T201", "N802", "N803", "N806", "PLR2004", "S101"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]

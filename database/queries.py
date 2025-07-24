@@ -1,23 +1,28 @@
-from aiogram import Router, Bot, F
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup
-from aiogram.fsm.context import FSMContext
-
-from database.core import db
-from states.enums import UserStatus, InterCurrency, CoinActions
-from keyboards.inline import agree_buttons, profile_buttons
-from keyboards.reply import main
-from config_reader import config, st, v
-
-from dotenv import load_dotenv
+import math
 import random as rn
-from json import loads, dumps
 from asyncio import sleep as asleep
+from json import dumps, loads
+from typing import Any
+import secrets
+
 import prettytable as pt
-from typing import List, Tuple, Union
+from aiogram import Bot
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
+from dotenv import load_dotenv
+from millify import millify
+
+from config_reader import Coin, config, st, v
+from database.core import db
+from keyboards.inline import agree_buttons, items_buttons, profile_buttons
+from keyboards.reply import main
+from states.enums import CoinActions, Currencies, UserStatus
+from states.types import CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
 
-async def register(id, username) -> UserStatus:
+
+async def register(user_id: int, username: str) -> UserStatus:
     """
     Функция для регистрации юзера
 
@@ -25,7 +30,7 @@ async def register(id, username) -> UserStatus:
     :param username: Юзернейм пользователя
     :return: Базовый UserStatus
     """
-    status = await check_profile(id)
+    status = await check_profile(user_id)
 
     if status == UserStatus.NOT_FOUND:
         await db.insert_data("users", {"id": id, "username": username})
@@ -35,21 +40,19 @@ async def register(id, username) -> UserStatus:
     else:
         return status
 
-async def get_profile(id) -> dict | UserStatus:
+
+async def get_profile(user_id: int) -> ProfileData:
     """
-    Функция для получения профиля юзера, при его отсутствии возвращает соотстветствующий UserStatus
+    Функция для получения профиля юзера
 
     :param id: Айди пользователя
-    :return: dict из базы данных or UserStatus
+    :return: ProfileData из базы данных
     """
-    status = await check_profile(id)
+    # не чекаем наличие юзера, поскольку его не может не быть на данном этапе
 
-    if status == UserStatus.ALREADY_EXISTS:
-        data = await db.select_data("users", "*", {"id": id}, fetch_all=False)
-        return data
+    data = await db.select_data("users", "*", {"id": user_id}, fetch_all=False)
+    return data
 
-    else:
-        return status
 
 async def check_profile(id: int) -> UserStatus:
     """
@@ -68,6 +71,7 @@ async def check_profile(id: int) -> UserStatus:
     else:
         return UserStatus.ERROR
 
+
 async def diff_convert(diff: float) -> str:
     """
     Функция для конвертации чисел типа 50.3 в str "+50.3%"
@@ -77,12 +81,31 @@ async def diff_convert(diff: float) -> str:
     """
     diff = round(diff, 2)
 
-    if diff >= 0:
-        text = f"+{diff}%"
-    else:
-        text = f"{diff}%"
+    text = f"+{diff}%" if diff >= 0 else f"{diff}%"
 
     return text
+
+
+async def create_insufficient_funds_msg(balance: float, need: float, currency: Currencies) -> str:
+    """
+    Функция для преобразования данных в строку "Недостаточно средств"
+
+    :param balance: Текущий баланс валюты
+    :param need: Кол-во требуемой валюты
+    :param currency: Сама валюта
+    :return: Строка "Недостаточно средств"
+    """
+    currency_str = currency.value.upper()
+
+    text = (
+        f"<b>❌ Недостаточно {currency_str}!</b>\n\n"
+        f"<b>Баланс:</b> {round(balance, 2)} {currency_str}\n"
+        f"<b>Требуется:</b> {need} {currency_str}\n\n"
+        f"<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
+    )
+    
+    return text
+
 
 async def get_price(name: str, is_round: bool = True) -> dict:
     """
@@ -96,34 +119,42 @@ async def get_price(name: str, is_round: bool = True) -> dict:
     name = name.lower()
     data = await db.select_data("coins", ["cost", "diff", "trend_score"], {"name": name})
 
-    if data:
-        if is_round:
-            cost = round(data['cost'], 2)
-        else:
-            cost = data['cost']
+    cost = round(data['cost'], 2) if is_round else data['cost']
 
-        diff = await diff_convert(data['diff'])
-        new_data = {"name": name, "cost": cost, "diff": diff, "trend_score": data['trend_score']}
+    diff = await diff_convert(data['diff'])
+    new_data = {"name": name, "cost": cost, "diff": diff, "trend_score": data['trend_score']}
 
-        return new_data
+    return new_data
+    
 
-async def change_trend_score(name: str, new_score: float) -> None:
+async def change_trend_score(name: str, score: float) -> None:
     data = await get_price(name)
 
-    new_score: float = (data['trend_score'] + new_score) * 0.9
+    new_score: float = (data['trend_score'] + score) * 0.9
     new_score = max(min(new_score, 100), -100)
 
     await db.update_data("coins", {"trend_score": new_score}, {"name": name})
 
+
+async def secure_uniform(a: float, b: float) -> float:
+    """Безопасный аналог random.uniform для float."""
+    # secrets.randbelow работает только с int, поэтому имитируем float:
+    scale = 10**8
+    rand = secrets.randbelow(int((b - a) * scale)) / scale
+    return a + rand
+
+
 async def change_coin(name: str, bot: Bot) -> None:
     """
-    Функция для рандомного изменения стоимости валюты по названию
+    Функция для безопасного изменения стоимости валюты по названию.
 
     :param name: Название валюты (lower)
     :param bot: Bot
     :return: None, обновляет запись в БД
     """
-    coin: object = globals()[name]
+    coins_map = {'st': st, 'v': v}
+    coin: Coin = coins_map[name]
+
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
     min_price: float = coin.min_price
@@ -131,54 +162,51 @@ async def change_coin(name: str, bot: Bot) -> None:
     min_fall: float = coin.min_fall
 
     coin_info = await get_price(name, is_round=False)
-
     trend_score: float = coin_info['trend_score']
 
     score = abs(trend_score)
     chance = min(100, score)
 
-    roll = rn.uniform(1, 100)
+    roll = secrets.randbelow(100) + 1  # 1–100 включительно
 
     if roll <= chance:
-        if trend_score > 0: # MAX UP
-            random_percent = round(max_growth, 4)
-        else: # MAX DOWN
-            random_percent = round(-max_fall, 4)
-
-        await bot.send_message(config.admin_id, f"<b>Валюта {name} резко изменила цену из-за trend points</b>", reply_markup=main)
+        random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
+        await bot.send_message(
+            config.admin_id,
+            f"<b>Валюта {name} резко изменила цену из-за trend points ({trend_score})</b>",
+            reply_markup=main
+        )
         await change_trend_score(name, 0)
-    elif coin_info['cost'] <= min_price:
-        random_percent = round(rn.uniform(min_growth, max_growth), 4)
+    elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
+        random_percent = round(await secure_uniform(min_growth, max_growth), 4)
         await change_trend_score(name, random_percent * 10)
     else:
-        if rn.choice([True, False]):
-            random_percent = round(rn.uniform(min_growth, max_growth), 4)
-            await change_trend_score(name, random_percent * 10)
-        else:
-            random_percent = round(-rn.uniform(min_fall, max_fall), 4)
-            await change_trend_score(name, random_percent * 10)
+        random_percent = -round(await secure_uniform(min_fall, max_fall), 4)
+        await change_trend_score(name, random_percent * 10)
 
     new_price = round(coin_info['cost'] * (1 + random_percent), 4)
     new_diff_percent = round(random_percent * 100, 4)
 
     if name == "v":
         await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>", reply_markup=main)
-    
+
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
 
-async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, include_diff: bool = False) -> str:
+
+async def build_amount_prompt(user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
     """
     Функция, конвертирующая набор данных в определённый текст (при покупке/продаже)
 
-    :param id: Айди пользователя
+    :param user_id: Айди пользователя
     :param action: CoinActions (buy/sell)
     :param currency: Название валюты
     :param include_diff: bool-значение. При True в строчке появляется процент изменений
     :return: str-text
     """
+
     verb = {CoinActions.BUY: "приобрести", CoinActions.SELL: "продать"}[action]
 
-    user_data = await get_profile(id)
+    user_data = await get_profile(user_id)
     balance, balance_label = (
         (user_data["rubles"], "RUB")
         if action == CoinActions.BUY
@@ -188,9 +216,17 @@ async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, in
     price = await get_price(currency)
     diff = f"<i>({price['diff']})</i>" if include_diff else ""
 
-    text = f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n<b>Текущий баланс:</b> {balance} {balance_label}\n<b>Текущая цена:</b> ~{price['cost']} RUB {diff}"
+    max_rounded = math.floor(balance / price['cost'] * 100) / 100
+
+    text = (
+        f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n"
+        f"<b>Текущий баланс:</b> {round(balance, 2)} {balance_label}\n"
+        f"<b>Текущая цена:</b> ~{price['cost']} RUB {diff}\n"
+        f"<b>Максимально возможное кол-во:</b> {max_rounded} {currency.upper()}"
+    )
 
     return text
+
 
 async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None:
     """
@@ -201,11 +237,14 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
     :param bot: Bot
     :return: None, только присылает сообщение
     """
+    if message.from_user is None:
+        return
+    
     user_id = message.from_user.id
 
     data = await state.get_data()
 
-    currency = data['currency']
+    currency: CurrencyKey = data['currency']
     amount = float(data['amount'])
 
     price_data = await get_price(currency, is_round=False)
@@ -220,14 +259,16 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         return
     elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            await message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
+            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            await message.answer(text)
             return
         else:
             remaining = user_data['rubles'] - last_price
             text = f"После покупки <b>{amount} {currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            await message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
+            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            await message.answer(text)
             return
         else:
             text = f"После продажи <b>{amount} {currency.upper()}</b> на балансе прибавится <b>~{last_price:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
@@ -237,55 +278,204 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
     
     await message.answer(text, reply_markup=agree_buttons)
 
+
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     """
-    Функция, которая производит взаимодействие с валютами. Является участницей цепочки из 2ух функция
+    Функция, которая производит взаимодействие с валютами. Является участницей цепочки из 2ух функций
 
     :param call: CallbackQuery
     :param state: FSMContext
     :return: None, меняет сообщение
     """
 
-    user_id = call.from_user.id
+    if call.message is None:
+        return
 
+    user_id = call.from_user.id
     data = await state.get_data()
-    currency: str = data['currency']
+    currency: CurrencyKey = data['currency']
     amount = float(data['amount'])
 
     price_data = await get_price(currency, is_round=False)
     user_data = await get_profile(user_id)
-
     last_price: float = price_data['cost'] * amount
-
-    # TODO: много повторений в коде, надо исправить
 
     if amount <= 0:
         await call.message.answer('<b>❌ Число должно быть больше 0</b>')
         return
-    elif data['type'] == CoinActions.BUY:
-        if last_price > user_data['rubles']:
-            await call.message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
-            return
-        else:
-            balance_rubles: float = user_data['rubles'] - last_price
-            balance_currency: float = user_data[currency] + amount
-            text = f"✅ <b>Успешная покупка {amount} {currency.upper()}!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
-            
-            await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
 
+    if data['type'] == CoinActions.BUY:
+        if last_price > user_data['rubles']:
+            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            await call.message.answer(text)
+            return
+        balance_rubles = user_data['rubles'] - last_price
+        balance_currency = user_data[currency] + amount
+        action_word = "покупка"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            await call.message.answer(f'<b>❌ Недостаточно средств для совершения транзакции</b>')
+            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            await call.message.answer(text)
             return
-        else:
-            balance_rubles: float = user_data['rubles'] + last_price
-            balance_currency: float = user_data[currency] - amount
-            text = f"✅ <b>Успешная продажа {amount} {currency.upper()}!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
+        balance_rubles = user_data['rubles'] + last_price
+        balance_currency = user_data[currency] - amount
+        action_word = "продажа"
+    else:
+        await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
+        return
 
-            await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
+    text = (
+        f"✅ <b>Успешная {action_word} {amount} {currency.upper()}!</b>\n\n"
+        f"<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n"
+        f"<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n"
+        f"<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n"
+        f"<i>Не забывайте, что все акции и валюты являются вымышленными</i>"
+    )
 
+    await db.update_data(
+        "users",
+        {"rubles": balance_rubles, currency: balance_currency},
+        {"id": user_id},
+    )
     await state.clear()
     await call.message.answer(text)
+
+
+async def find_loot_item(user_loot: list[dict[str, Any]], item_id: int) -> dict[str, Any] | None:
+    for item in user_loot:
+        if item.get('id') == item_id:
+            return item
+    return None
+
+
+async def update_box_data(user_loot: list[dict[str, Any]], ruble_balance: float, boxes_left: float, user_id: int) -> None:
+    """
+    Простая функция, которая обновляет данные о пользователе, связанные с Боксами
+
+    :param user_loot: Ожидаем user_loot
+    :param ruble_balance: Ожидаем текущий баланс рублей (с компенсацией)
+    :param boxes_left: Ожидаем boxes_balance['left']
+    :param user_id: Айди юзера
+    :return: None
+    """
+
+    await db.update_data('users', {
+            'items': dumps(user_loot),
+            'rubles': ruble_balance,
+            'box': boxes_left
+        }, {'id': user_id})
+
+
+async def create_result_message(obtained_items: list[tuple[str, str]], amount: int, ruble_balance: dict[str, int | float], boxes_balance: dict[str, int]) -> str:
+    """
+    Функция, которая превращает некоторые данные в сообщение об открытии боксов
+
+    :param obtained_items: Список предметов
+    :param ruble_balance: dict с рублями
+    :param boxes_balance: dict с боксами
+    :return: Сообщение для вывода
+    """
+
+    obtained_items.sort(key=lambda x: config.rarities[x[0]]['order'])
+    items_text = "\n".join(item[1] for item in obtained_items) or "— ничего не выпало —"
+
+    comp_text = f"[+{ruble_balance['compensation']} RUB]" if ruble_balance['compensation'] > 0 else ""
+
+    boxes_compensation = boxes_balance['balance'] - boxes_balance['left']
+
+    result_message = (
+        "<b>🎉 Поздравляем!</b>\n\n"
+        f"<i>После открытия {amount} BOX, вы получили:</i>\n"
+        f"{items_text}\n\n"
+        "<i>После открытия изменился ваш баланс:</i>\n"
+        f"<b>Баланс RUB:</b> {round(ruble_balance['balance'], 2)} <i>{comp_text}</i>\n"
+        f"<b>Баланс BOX:</b> {boxes_balance['left']} <i>[-{boxes_compensation} BOX]</i>\n"
+    )
+
+    return result_message
+
+
+async def get_available_items_by_rarity(all_items: list[dict], rarity_name: str) -> list[dict]:
+    """
+    Получить список предметов по редкости
+
+    :param all_items: Список всех предметов
+    :param rarity_name: Название редкости (str)
+    :return: Список предметов указанной редкости
+    """
+    return [item for item in all_items if str(item['rarity']) == rarity_name]
+
+
+async def handle_loot_item(user_loot: list[dict], item_id: int, rarity_conf: dict, ruble_balance: dict[str, int | float]) -> str:
+    """
+    Обработать добавление предмета в инвентарь пользователя,
+    начислить компенсацию если предмет уже есть
+
+    :param user_loot: Список предметов пользователя
+    :param item_id: ID предмета
+    :param rarity_conf: Конфигурация редкости предмета
+    :param ruble_balance: Баланс рублей (с компенсацией)
+    :return: Текст компенсации для вывода в сообщении
+    """
+    compensation_text = ""
+    loot_item = await find_loot_item(user_loot, item_id)
+    if loot_item:
+        loot_item['count'] += 1
+        compensation = rarity_conf['compensation']
+        ruble_balance['compensation'] += compensation
+        ruble_balance['balance'] += compensation
+        compensation_text = f"[+{compensation} RUB]"
+    else:
+        user_loot.append({'id': item_id, 'count': 1})
+    return compensation_text
+
+
+async def process_box_rewards(amount: int, boxes_balance: dict[str, int], ruble_balance: dict[str, int | float], user_loot: list[dict[str, Any]], is_free: bool) -> list[tuple[str, str]]:
+    """
+    Функция, которая открывает указанное количество боксов и возвращает список полученных предметов
+    
+    :param amount: Количество открываемых боксов
+    :param boxes_balance: Текущий баланс боксов
+    :param ruble_balance: Баланс RUB
+    :param user_loot: Инвентарь пользователя
+    :param is_free: Если True, не тратит боксы
+    :return: Список кортежей (редкость, описание предмета)
+    """
+    obtained_items = []
+    all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
+    rarities = list(config.rarities.keys())
+    weights = [config.rarities[r]['chance'] for r in rarities]
+    lucky_chance = 0.1  # 10%
+
+    for _ in range(amount):
+        if boxes_balance['balance'] <= 0 and not is_free:
+            break
+
+        selected_rarity = rn.choices(rarities, weights=weights, k=1)[0]
+        rarity_conf = config.rarities[selected_rarity]
+
+        rarity_name = rarity_conf['name']
+        available_items = await get_available_items_by_rarity(all_items, rarity_name)
+
+        if not available_items:
+            continue
+
+        selected_item = rn.choice(available_items)
+        item_id = selected_item['id']
+        item_name = selected_item['name']
+
+        compensation_text = await handle_loot_item(user_loot, item_id, rarity_conf, ruble_balance)
+
+        obtained_items.append((
+            selected_rarity,
+            f"{rarity_conf['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
+        ))
+
+        if secrets.randbelow(1_000_000) / 1_000_000 > lucky_chance and not is_free:
+            boxes_balance['left'] -= 1
+
+    return obtained_items
+
 
 async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_free: bool = False) -> None:
     """
@@ -298,97 +488,79 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     :return: None 
     """
 
+    if call.message is None:
+        return
+
     profile = await get_profile(user_id)
 
     if not is_free and profile['box'] < amount:
-        await call.message.answer(
-            f"<b>❌ Недостаточно BOX для открытия!</b>\n\n"
-            f"<b>Баланс:</b> {profile['box']} BOX\n"
-            f"<b>Требуется:</b> {amount} BOX\n\n"
-            f"<i>Не забывайте, что все предметы являются вымышленными. Любые совпадения — случайны</i>"
-        )
+        text = await create_insufficient_funds_msg(profile['box'], amount, Currencies.BOX)
+        await call.message.answer(text)
         return
 
-    all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     user_data = await db.select_data("users", "items", {"id": user_id})
     user_loot = loads(user_data['items']) if user_data and user_data['items'] else []
 
-    obtained_items = []
-    boxes_left = profile['box']
-    boxes_balance = profile['box']
-    ruble_balance = profile['rubles']
-    compensation_total = 0
+    boxes_balance: dict[str, int] = {"balance": profile['box'], "left": profile['box']}
+    ruble_balance: dict[str, int | float] = {"balance": profile['rubles'], "compensation": 0}
+    obtained_items = await process_box_rewards(amount, boxes_balance, ruble_balance, user_loot, is_free)
 
-    rarities = list(config.rarities.keys())
-    weights = [config.rarities[r]['chance'] for r in rarities]
+    await update_box_data(user_loot, ruble_balance['balance'], boxes_balance['left'], user_id)
 
-    def find_loot_item(item_id):
-        for item in user_loot:
-            if item.get('id') == item_id:
-                return item
-        return None
-
-    for _ in range(amount):
-        if boxes_left <= 0 and not is_free:
-            break
-
-        selected_rarity = rn.choices(rarities, weights=weights, k=1)[0]
-        rarity_conf = config.rarities[selected_rarity]
-
-        # Сравниваем по английскому ключу (в БД указана русская редкость — нужно соответствие!)
-        rarity_name = rarity_conf['name']
-        available_items = [item for item in all_items if str(item['rarity']) == rarity_name]
-        if not available_items:
-            continue
-
-        selected_item = rn.choice(available_items)
-        item_id = selected_item['id']
-        item_name = selected_item['name']
-
-        compensation_text = ""
-        loot_item = find_loot_item(item_id)
-        if loot_item:
-            loot_item['count'] += 1
-            compensation = rarity_conf['compensation']
-            ruble_balance += compensation
-            compensation_total += compensation
-            compensation_text = f"[+{compensation} RUB]"
-        else:
-            user_loot.append({'id': item_id, 'count': 1})
-
-        obtained_items.append((
-            selected_rarity,
-            f"{rarity_conf['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
-        ))
-
-        if rn.random() < 0.9 and not is_free:
-            boxes_left -= 1
-
-    # Обновление данных
-    await db.update_data('users', {
-        'items': dumps(user_loot),
-        'rubles': ruble_balance,
-        'box': boxes_left
-    }, {'id': user_id})
-
-    # Сортировка по order
-    obtained_items.sort(key=lambda x: config.rarities[x[0]]['order'])
-    items_text = "\n".join(item[1] for item in obtained_items) or "— ничего не выпало —"
-
-    comp_text = f"[+{compensation_total} RUB]" if compensation_total > 0 else ""
-
-    result_message = (
-        "<b>🎉 Поздравляем!</b>\n\n"
-        f"<i>Открыв {amount} BOX, вы получили:</i>\n"
-        f"{items_text}\n\n"
-        "<i>После открытия изменился ваш баланс:</i>\n"
-        f"<b>Баланс RUB:</b> {round(ruble_balance, 2)} <i>{comp_text}</i>\n"
-        f"<b>Баланс BOX:</b> {boxes_left} <i>[-{boxes_balance - boxes_left} BOX]</i>\n"
-    )
+    result_message = await create_result_message(obtained_items, amount, ruble_balance, boxes_balance)
 
     await call.message.answer(result_message)
 
-async def show_items(user_id: int, call: CallbackQuery, inline: InlineKeyboardMarkup):
+
+def _generate_user_items_text(available_items: list[dict], user_items_dict: dict[int, int]) -> str:
+    """Генерирует текст для предметов, которые есть у пользователя"""
+    lines = []
+    for item in available_items:
+        count = user_items_dict.get(item['id'], 0)
+        if count > 0:
+            lines.append(f"{item['name']} <i>[{count} шт.]</i>")
+    return "\n".join(lines)
+
+
+async def build_rarity_section(
+    rarity_key: str,
+    info: dict,
+    all_items: list[dict],
+    user_items_dict: dict[int, int]
+) -> str:
+    """
+    Строит текст для одной редкости с учётом предметов пользователя
+
+    :param rarity_key: Ключ редкости
+    :param info: Информация о редкости (name, icon, chance, order)
+    :param all_items: Список всех предметов
+    :param user_items_dict: Словарь {item_id: count} пользователя
+    :return: Текст для данной редкости
+    """
+    name = info['name']
+    icon = info['icon']
+    chance = info['chance']
+
+    section_text = f"<b>{icon} {name} ({chance}%):</b> — "
+    available_items = [item for item in all_items if item['rarity'] == rarity_key]
+    item_count = len(available_items)
+
+    if not user_items_dict:
+        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
+
+    count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
+
+    if count_with_user == 0:
+        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+    else:
+        section_text += f"<b>{count_with_user}</b> из {item_count}\n"
+        section_text += _generate_user_items_text(available_items, user_items_dict)
+
+    section_text += "\n"
+    return section_text
+
+
+async def show_items(user_id: int, call: CallbackQuery):
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     res = await db.select_data("users", ["items"], {"id": user_id})
 
@@ -400,32 +572,14 @@ async def show_items(user_id: int, call: CallbackQuery, inline: InlineKeyboardMa
 
     text = ""
     for rarity_key, info in sorted(config.rarities.items(), key=lambda x: x[1]['order']):
-        name = info['name']
-        icon = info['icon']
-        chance = info['chance']
+        section = await build_rarity_section(rarity_key, info, all_items, user_items_dict)
+        text += section
 
-        text += f"<b>{icon} {name} ({chance}%):</b> — "
+    if isinstance(call.message, Message):
+        return await call.message.edit_text(text, reply_markup=items_buttons)
+    else:
+        return
 
-        available_items = [item for item in all_items if item['rarity'] == rarity_key]
-        item_count = len(available_items)
-
-        if user_items_dict:
-            count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
-
-            if count_with_user == 0:
-                text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
-            else:
-                text += f"<b>{count_with_user}</b> из {item_count}\n"
-                for item in available_items:
-                    if user_items_dict.get(item['id'], 0) > 0:
-                        count = user_items_dict.get(item['id'], 0)
-                        text += f"{item['name']} <i>[{count} шт.]</i>\n"
-        else:
-            text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
-
-        text += "\n"
-
-    return await call.message.edit_text(text, reply_markup=inline.items_buttons)
 
 async def change_all_coins(bot: Bot):
     """
@@ -435,12 +589,26 @@ async def change_all_coins(bot: Bot):
 
     await change_coin('st', bot)
     await change_coin('v', bot)
-
-    print(f"Next update at {random_time}")
-
     await asleep(random_time)
 
-async def send_table(data: List[Tuple[str, Union[int, float, str], str]], total_sum: float) -> pt.PrettyTable:
+
+async def format_number(num: float) -> str:
+    """
+    Функция, трансформирующая числа типа 123456.78 -> 123.45K. Числа ниже 100К не трогает
+
+    :param num: float число
+    :return: Строка со значением
+    """
+    treshold_to_shorten = 100_000
+
+    if abs(num) < treshold_to_shorten:
+        s = f"{num:.2f}".rstrip('0').rstrip('.')
+        return s
+    
+    return millify(num, precision=2)
+
+
+async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: str) -> pt.PrettyTable:
     """
     Функция для создания таблицы из данных в профиле
 
@@ -455,15 +623,16 @@ async def send_table(data: List[Tuple[str, Union[int, float, str], str]], total_
     table.align['Стоимость'] = 'r'
 
     for symbol, amount, cost in data:
-        table.add_row([symbol, f'{amount:.2f}' if isinstance(amount, (int, float)) else amount, cost])
+        table.add_row([symbol, f'{await format_number(amount)}' if isinstance(amount, (float)) else amount, cost])
 
     table.add_row(['-' * 10, '-' * 10, '-' * 15])
 
-    table.add_row(['TOTAL', '', f'~{total_sum:.2f} RUB'])
+    table.add_row(['TOTAL', '', f'~{total_sum} RUB'])
 
     return table
 
-async def send_profile(user_id: int, username: str, message: Message | CallbackQuery) -> None:
+
+async def send_profile(user_id: int, username: str | None, message: Message | CallbackQuery) -> None:
     """
     Функция для отправки сообщения с профилем
 
@@ -473,31 +642,40 @@ async def send_profile(user_id: int, username: str, message: Message | CallbackQ
     :return: None
     """
 
-    data = await get_profile(user_id)
+    data: ProfileData = await get_profile(user_id)
 
     st_price = await get_price("st")
     v_price = await get_price("v")
 
-    st_value = st_price['cost'] * data['st']
-    v_value = v_price['cost'] * data['v']
+    st_value: float = st_price['cost'] * data['st']
+    v_value: float = v_price['cost'] * data['v']
     total_value = data['rubles'] + st_value + v_value
+    total_formatted_value = await format_number(total_value)
 
-    table = await send_table([
+    data_for_table: TableProfile = [
         ('RUB', data['rubles'], '—'),
-        ('ST', data['st'], f'~{round(st_value, 2)} RUB'),
-        ('V', data['v'], f'~{round(v_value, 2)} RUB'),
+        ('ST', data['st'], await format_number(st_value)),
+        ('V', data['v'], await format_number(v_value)),
         ('BOX', data['box'], '—')
-    ], total_value)
+    ]
 
-    text = f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
+    table = await send_table(data_for_table, total_formatted_value)
+
+    username_text = f"@{username}" if username else ""
+
+    text = f"<b>📋 Профиль пользователя {username_text}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
 
     if isinstance(message, Message):
         await message.answer(text, reply_markup=profile_buttons)
     elif isinstance(message, CallbackQuery):
-        await message.message.edit_text(text, reply_markup=profile_buttons)
-        await message.answer()
+        if message.message is not None and isinstance(message.message, Message):
+            await message.message.edit_text(text, reply_markup=profile_buttons)
+            await message.answer()
+        else:
+            await message.answer(text, reply_markup=profile_buttons)
 
-async def check_casino_balance(id):
-    data = await db.select_data("users", "casino_pts", {"id": id})
+
+async def check_casino_balance(user_id):
+    data = await db.select_data("users", "casino_pts", {"id": user_id})
 
     return data
