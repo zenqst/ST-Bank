@@ -37,7 +37,7 @@ class Config:
 
 
 class ST(Coin):
-    max_growth: float = 0.35
+    max_growth: float = 0.25
     min_growth: float = 0.1
     max_fall: float = 0.3
     min_fall: float = 0.08
@@ -45,7 +45,7 @@ class ST(Coin):
 
 
 class V(Coin):
-    max_growth: float = 0.50
+    max_growth: float = 0.40
     min_growth: float = 0.15
     max_fall: float = 0.45
     min_fall: float = 0.05
