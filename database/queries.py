@@ -2,6 +2,7 @@ import random as rn
 from asyncio import sleep as asleep
 from json import dumps, loads
 from typing import Any
+import math
 
 import prettytable as pt
 from aiogram import Bot
@@ -93,12 +94,12 @@ async def create_insufficient_funds_msg(balance: float, need: float, currency: C
     :param currency: Сама валюта
     :return: Строка "Недостаточно средств"
     """
-    currency = currency.value.upper()
+    currency_str = currency.value.upper()
 
     text = (
-        f"<b>❌ Недостаточно {currency}!</b>\n\n"
-        f"<b>Баланс:</b> {balance} {currency}\n"
-        f"<b>Требуется:</b> {need} {currency}\n\n"
+        f"<b>❌ Недостаточно {currency_str}!</b>\n\n"
+        f"<b>Баланс:</b> {round(balance, 2)} {currency_str}\n"
+        f"<b>Требуется:</b> {need} {currency_str}\n\n"
         f"<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
     )
     
@@ -204,7 +205,14 @@ async def build_amount_prompt(user_id: int, action: CoinActions, currency: Curre
     price = await get_price(currency)
     diff = f"<i>({price['diff']})</i>" if include_diff else ""
 
-    text = f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n<b>Текущий баланс:</b> {balance} {balance_label}\n<b>Текущая цена:</b> ~{price['cost']} RUB {diff}"
+    max_rounded = math.floor(balance / price['cost'] * 100) / 100
+
+    text = (
+        f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n"
+        f"<b>Текущий баланс:</b> {round(balance, 2)} {balance_label}\n"
+        f"<b>Текущая цена:</b> ~{price['cost']} RUB {diff}\n"
+        f"<b>Максимально возможное кол-во:</b> {max_rounded} {currency.upper()}"
+    )
 
     return text
 
@@ -493,6 +501,16 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     await call.message.answer(result_message)
 
 
+def _generate_user_items_text(available_items: list[dict], user_items_dict: dict[int, int]) -> str:
+    """Генерирует текст для предметов, которые есть у пользователя"""
+    lines = []
+    for item in available_items:
+        count = user_items_dict.get(item['id'], 0)
+        if count > 0:
+            lines.append(f"{item['name']} <i>[{count} шт.]</i>")
+    return "\n".join(lines)
+
+
 async def build_rarity_section(
     rarity_key: str,
     info: dict,
@@ -513,26 +531,21 @@ async def build_rarity_section(
     chance = info['chance']
 
     section_text = f"<b>{icon} {name} ({chance}%):</b> — "
-
     available_items = [item for item in all_items if item['rarity'] == rarity_key]
     item_count = len(available_items)
 
-    if user_items_dict:
-        count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
+    if not user_items_dict:
+        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
 
-        if count_with_user == 0:
-            section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
-        else:
-            section_text += f"<b>{count_with_user}</b> из {item_count}\n"
-            for item in available_items:
-                count = user_items_dict.get(item['id'], 0)
-                if count > 0:
-                    section_text += f"{item['name']} <i>[{count} шт.]</i>\n"
-    else:
+    count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
+
+    if count_with_user == 0:
         section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+    else:
+        section_text += f"<b>{count_with_user}</b> из {item_count}\n"
+        section_text += _generate_user_items_text(available_items, user_items_dict)
 
     section_text += "\n"
-
     return section_text
 
 
