@@ -86,7 +86,7 @@ async def diff_convert(diff: float) -> str:
     return text
 
 
-async def get_price(name: str, is_round: bool = True) -> dict:
+async def get_price(name: str, is_round: bool = True) -> dict | None:
     """
     Однсложная функция, которая возвращает стоимость и разницу в цене валюты, указанную в name
 
@@ -423,8 +423,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     user_data = await db.select_data("users", "items", {"id": user_id})
     user_loot = loads(user_data['items']) if user_data and user_data['items'] else []
 
-    boxes_balance = {"balance": profile['box'], "left": profile['box']}
-    ruble_balance = {"balance": profile['rubles'], "compensation": 0}
+    boxes_balance: dict[int, int] = {"balance": profile['box'], "left": profile['box']}
+    ruble_balance: dict[float, int | float] = {"balance": profile['rubles'], "compensation": 0}
     obtained_items = await process_box_rewards(amount, boxes_balance, ruble_balance, user_loot, is_free)
 
     await update_box_data(user_loot, ruble_balance['balance'], boxes_balance['left'], user_id)
@@ -544,7 +544,7 @@ async def send_profile(user_id: int, username: str, message: Message | CallbackQ
         await message.answer()
 
 
-async def check_casino_balance(id):
-    data = await db.select_data("users", "casino_pts", {"id": id})
+async def check_casino_balance(user_id):
+    data = await db.select_data("users", "casino_pts", {"id": user_id})
 
     return data

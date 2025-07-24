@@ -9,13 +9,28 @@ from states.enums import StatusMessages
 
 load_dotenv()
 
+
+def get_env_int(name: str) -> int:
+    raw = os.getenv(name)
+    error_msg_missing = f"Env var {name} not set"
+    if raw is None:
+        msg = error_msg_missing
+        raise RuntimeError(msg)
+
+    try:
+        return int(raw)
+    except ValueError as err:
+        msg = f"Env var {name} is not a valid integer"
+        raise RuntimeError(msg) from err
+
+
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
-DB_POOL_MIN = int(os.getenv("DB_POOL_MIN"))
-DB_POOL_MAX = int(os.getenv("DB_POOL_MAX"))
+DB_POOL_MIN = get_env_int("DB_POOL_MIN")
+DB_POOL_MAX = get_env_int("DB_POOL_MAX")
 
 # checking for important vars
 required_env_vars = ["DB_USER", "DB_PASSWORD", "DB_NAME", "DB_HOST", "DB_PORT"]
