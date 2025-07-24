@@ -30,15 +30,14 @@ ALLOWED_TABLES = {"users", "items", "coins"}
 def safe_identifier(identifier: str) -> str:
     """
     Проверяет, что идентификатор (имя таблицы/поля) безопасен для вставки в SQL.
-    Разрешены только латинские буквы, цифры и подчёркивание, первый символ не цифра.
-    Возвращает идентификатор, обёрнутый в двойные кавычки.
+    Разрешены только латинские буквы, цифры, подчёркивание и звёздочка (*).
     """
     if identifier == "*":
         return identifier
     if not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", identifier):
-        text = f"Invalid identifier name: {identifier}"
+        text = f"Invalid name: {identifier}"
         raise ValueError(text)
-    return f'"{identifier}"'
+    return identifier
 
 
 class DB:
@@ -179,8 +178,7 @@ class DB:
         :param table: Название таблицы
         :param identifiers: WHERE условия
         """
-
-        safe_table = safe_identifier(table)
+        safe_identifier(table)
         if table not in ALLOWED_TABLES:
             raise ValueError(StatusMessages.TABLE_DENIED)
 
@@ -190,7 +188,7 @@ class DB:
         try:
             async with self.pool.acquire() as con:
                 where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(identifiers.keys()))
-                query = f"DELETE FROM {safe_table} WHERE {where_clause}"
+                query = f"DELETE FROM {table} WHERE {where_clause}"
                 values = tuple(identifiers.values())
                 await con.execute(query, *values)
         except Exception:

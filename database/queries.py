@@ -125,7 +125,8 @@ async def change_coin(name: str, bot: Bot) -> None:
     :return: None, обновляет запись в БД
     """
     coins_map = {'st': st, 'v': v}
-    coin = coins_map.get(name)
+    coin: object = coins_map[name]
+
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
     min_price: float = coin.min_price
