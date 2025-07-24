@@ -8,12 +8,14 @@ from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from dotenv import load_dotenv
+from millify import millify
 
 from config_reader import Coin, config, st, v
 from database.core import db
 from keyboards.inline import agree_buttons, items_buttons, profile_buttons
 from keyboards.reply import main
 from states.enums import CoinActions, UserStatus
+from states.types import CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
 
@@ -37,12 +39,12 @@ async def register(user_id: int, username: str) -> UserStatus:
         return status
 
 
-async def get_profile(user_id: int) -> dict:
+async def get_profile(user_id: int) -> ProfileData:
     """
     Функция для получения профиля юзера
 
     :param id: Айди пользователя
-    :return: dict из базы данных or UserStatus
+    :return: ProfileData из базы данных
     """
     # не чекаем наличие юзера, поскольку его не может не быть на данном этапе
 
@@ -158,7 +160,7 @@ async def change_coin(name: str, bot: Bot) -> None:
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
 
 
-async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, include_diff: bool = False) -> str:
+async def build_amount_prompt(id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
     """
     Функция, конвертирующая набор данных в определённый текст (при покупке/продаже)
 
@@ -202,7 +204,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
 
     data = await state.get_data()
 
-    currency = data['currency']
+    currency: CurrencyKey = data['currency']
     amount = float(data['amount'])
 
     price_data = await get_price(currency, is_round=False)
@@ -249,7 +251,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     user_id = call.from_user.id
     data = await state.get_data()
-    currency: str = data['currency']
+    currency: CurrencyKey = data['currency']
     amount = float(data['amount'])
 
     price_data = await get_price(currency, is_round=False)
@@ -499,7 +501,23 @@ async def change_all_coins(bot: Bot):
     await asleep(random_time)
 
 
-async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: float) -> pt.PrettyTable:
+async def format_number(num: float) -> str:
+    """
+    Функция, трансформирующая числа типа 123456.78 -> 123.45K. Числа ниже 100К не трогает
+
+    :param num: float число
+    :return: Строка со значением
+    """
+    treshold_to_shorten = 100_000
+
+    if abs(num) < treshold_to_shorten:
+        s = f"{num:.2f}".rstrip('0').rstrip('.')
+        return s
+    
+    return millify(num, precision=2)
+
+
+async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: str) -> pt.PrettyTable:
     """
     Функция для создания таблицы из данных в профиле
 
@@ -514,11 +532,11 @@ async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: 
     table.align['Стоимость'] = 'r'
 
     for symbol, amount, cost in data:
-        table.add_row([symbol, f'{amount:.2f}' if isinstance(amount, (int, float)) else amount, cost])
+        table.add_row([symbol, f'{await format_number(amount)}' if isinstance(amount, (float)) else amount, cost])
 
     table.add_row(['-' * 10, '-' * 10, '-' * 15])
 
-    table.add_row(['TOTAL', '', f'~{total_sum:.2f} RUB'])
+    table.add_row(['TOTAL', '', f'~{total_sum} RUB'])
 
     return table
 
@@ -533,21 +551,24 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
     :return: None
     """
 
-    data = await get_profile(user_id)
+    data: ProfileData = await get_profile(user_id)
 
     st_price = await get_price("st")
     v_price = await get_price("v")
 
-    st_value = st_price['cost'] * data['st']
-    v_value = v_price['cost'] * data['v']
+    st_value: float = st_price['cost'] * data['st']
+    v_value: float = v_price['cost'] * data['v']
     total_value = data['rubles'] + st_value + v_value
+    total_formatted_value = await format_number(total_value)
 
-    table = await send_table([
+    data_for_table: TableProfile = [
         ('RUB', data['rubles'], '—'),
-        ('ST', data['st'], f'~{round(st_value, 2)} RUB'),
-        ('V', data['v'], f'~{round(v_value, 2)} RUB'),
+        ('ST', data['st'], await format_number(st_value)),
+        ('V', data['v'], await format_number(v_value)),
         ('BOX', data['box'], '—')
-    ], total_value)
+    ]
+
+    table = await send_table(data_for_table, total_formatted_value)
 
     username_text = f"@{username}" if username else ""
 

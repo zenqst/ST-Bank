@@ -608,6 +608,17 @@ files = [
 ]
 
 [[package]]
+name = "millify"
+version = "0.1.1"
+description = "Convert long numbers into a human-readable format in Python"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "millify-0.1.1.tar.gz", hash = "sha256:619defdc98b6d23f941b5ce4aaf4bf87a0e0f64cd0446ffa299be94486597f1a"},
+]
+
+[[package]]
 name = "multidict"
 version = "6.6.3"
 description = "multidict implementation"
@@ -1295,4 +1306,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13"
-content-hash = "51f8b877c46048678db5f6726b384e4b66e843dda5aed8e17ed1a9c1d3f6c0b4"
+content-hash = "03f3dec27dddc7b7b252ba47919101cea726494f05255ecef2acf6c6ee9e6e2c"
