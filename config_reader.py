@@ -31,7 +31,15 @@ class Config:
     }
 
 
-class ST:
+class Coin:
+    max_growth: float = 0.0
+    min_growth: float = 0.0
+    max_fall: float = 0.0
+    min_fall: float = 0.0
+    min_price: float = 0.0
+
+
+class ST(Coin):
     max_growth: float = 0.35
     min_growth: float = 0.1
     max_fall: float = 0.3
@@ -39,7 +47,7 @@ class ST:
     min_price: float = 50.0
 
 
-class V:
+class V(Coin):
     max_growth: float = 0.50
     min_growth: float = 0.15
     max_fall: float = 0.45
@@ -51,3 +59,4 @@ settings = Settings()
 config = Config()
 st = ST()
 v = V()
+coin_cfg = Coin()

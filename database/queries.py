@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from dotenv import load_dotenv
 
-from config_reader import config, st, v
+from config_reader import Coin, config, st, v
 from database.core import db
 from keyboards.inline import agree_buttons, profile_buttons
 from keyboards.reply import main
@@ -125,7 +125,7 @@ async def change_coin(name: str, bot: Bot) -> None:
     :return: None, обновляет запись в БД
     """
     coins_map = {'st': st, 'v': v}
-    coin: object = coins_map[name]
+    coin: Coin = coins_map[name]
 
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
