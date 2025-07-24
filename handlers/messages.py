@@ -11,6 +11,9 @@ router = Router()
 
 @router.message(F.text.lower().in_(["💲 открыть брокерский счёт"]))
 async def start_message(message: Message):
+    if message.from_user is None:
+        return
+
     user_id = message.from_user.id
     username = message.from_user.username
 
@@ -26,6 +29,9 @@ async def start_message(message: Message):
 
 @router.message(F.text.lower().in_(["📋 профиль"]))
 async def profile(message: Message):
+    if message.from_user is None:
+        return
+
     await send_profile(message.from_user.id, message.from_user.username, message)
 
 
@@ -39,6 +45,9 @@ async def trade(message: Message):
 
 @router.message(F.text.lower().in_(["📦 открыть бокс"]))
 async def boxes(message: Message):
+    if message.from_user is None:
+        return
+    
     profile = await get_profile(message.from_user.id)
 
     await message.answer(f"Меню взаимодействия с Боксами\n\n<b>Краткая сводка:</b>\nОткрытие Боксов — процесс, при котором вы тратите свои BOX, а взамен получаете предметы разных редкостей. Можно выбрать количество Боксов для открытия — от 1 до 10. Существует 10% шанс на то, что Бокс будет сохранён.\nПокупка Боксов — обычная покупка валюты BOX, но при этом цена всегда статична (может меняться лишь только при обновлениях).\n\n<b>Баланс BOX:</b> {profile['box']} BOX\n\n<i>Помните, что все предметы вымышлены, совпадения случайны.</i>", reply_markup=box_buttons)

@@ -83,26 +83,28 @@ ST-Bank/
 ├── .env
 ├── README.md
 ├── bot.py
+├── config_reader.py
+├── keep_alive.py
+├── poerty.lock
+├── pyproject.toml
 ├── callbacks/
 │   ├── common.py
 │   └── trade.py
-├── config_reader.py
 ├── database/
 │   ├── core.py
 │   └── queries.py
 ├── handlers/
 │   ├── commands.py
 │   └── messages.py
-├── keep_alive.py
 ├── keyboards/
 │   ├── inline.py
 │   └── reply.py
 ├── middlewares/
 │   ├── antiflood.py
 │   └── check_user.py
-├── requirements.txt
 ├── states/
 │   ├── enums.py
+│   ├── types.py
 │   └── fsm_states.py
 └── utils/
 ```

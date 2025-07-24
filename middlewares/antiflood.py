@@ -8,6 +8,9 @@ from cachetools import TTLCache
 
 
 class AntifloodMiddleware(BaseMiddleware):
+    cache: TTLCache[str, bool]
+    warned_users: TTLCache[int, bool]
+    
     def __init__(self, time_limit: int = 2, warn_cooldown: int = 10) -> None:
         self.cache = TTLCache(maxsize=10000, ttl=time_limit)
         self.warned_users = TTLCache(maxsize=10000, ttl=warn_cooldown)

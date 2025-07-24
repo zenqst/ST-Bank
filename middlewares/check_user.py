@@ -19,6 +19,8 @@ class UserCheckMiddleware(BaseMiddleware):
             data: dict[str, Any]
         ):
         if isinstance(event, Message):
+            if event.from_user is None:
+                return
             user_id = event.from_user.id
             text = event.text or ""
             if text.split()[0].lower() in self.skip_commands or self.skip_messages:
@@ -27,11 +29,14 @@ class UserCheckMiddleware(BaseMiddleware):
             msg = event
 
         elif isinstance(event, CallbackQuery):
+            if not isinstance(event.message, Message):
+                return
+            
             user_id = event.from_user.id
             data_str = event.data or ""
             if data_str.split(":")[0] in self.skip_commands:
                 return await handler(event, data)
-
+            
             msg = event.message
 
         else:

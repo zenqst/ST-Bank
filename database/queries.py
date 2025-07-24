@@ -6,19 +6,19 @@ from typing import Any
 import prettytable as pt
 from aiogram import Bot
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, Message
 from dotenv import load_dotenv
 
 from config_reader import Coin, config, st, v
 from database.core import db
-from keyboards.inline import agree_buttons, profile_buttons
+from keyboards.inline import agree_buttons, items_buttons, profile_buttons
 from keyboards.reply import main
 from states.enums import CoinActions, UserStatus
 
 load_dotenv()
 
 
-async def register(id, username) -> UserStatus:
+async def register(user_id: int, username: str) -> UserStatus:
     """
     Функция для регистрации юзера
 
@@ -26,7 +26,7 @@ async def register(id, username) -> UserStatus:
     :param username: Юзернейм пользователя
     :return: Базовый UserStatus
     """
-    status = await check_profile(id)
+    status = await check_profile(user_id)
 
     if status == UserStatus.NOT_FOUND:
         await db.insert_data("users", {"id": id, "username": username})
@@ -37,21 +37,17 @@ async def register(id, username) -> UserStatus:
         return status
 
 
-async def get_profile(id) -> dict | UserStatus:
+async def get_profile(user_id: int) -> dict:
     """
-    Функция для получения профиля юзера, при его отсутствии возвращает соотстветствующий UserStatus
+    Функция для получения профиля юзера
 
     :param id: Айди пользователя
     :return: dict из базы данных or UserStatus
     """
-    status = await check_profile(id)
+    # не чекаем наличие юзера, поскольку его не может не быть на данном этапе
 
-    if status == UserStatus.ALREADY_EXISTS:
-        data = await db.select_data("users", "*", {"id": id}, fetch_all=False)
-        return data
-
-    else:
-        return status
+    data = await db.select_data("users", "*", {"id": user_id}, fetch_all=False)
+    return data
 
 
 async def check_profile(id: int) -> UserStatus:
@@ -86,7 +82,7 @@ async def diff_convert(diff: float) -> str:
     return text
 
 
-async def get_price(name: str, is_round: bool = True) -> dict | None:
+async def get_price(name: str, is_round: bool = True) -> dict:
     """
     Однсложная функция, которая возвращает стоимость и разницу в цене валюты, указанную в name
 
@@ -98,19 +94,18 @@ async def get_price(name: str, is_round: bool = True) -> dict | None:
     name = name.lower()
     data = await db.select_data("coins", ["cost", "diff", "trend_score"], {"name": name})
 
-    if data:
-        cost = round(data['cost'], 2) if is_round else data['cost']
+    cost = round(data['cost'], 2) if is_round else data['cost']
 
-        diff = await diff_convert(data['diff'])
-        new_data = {"name": name, "cost": cost, "diff": diff, "trend_score": data['trend_score']}
+    diff = await diff_convert(data['diff'])
+    new_data = {"name": name, "cost": cost, "diff": diff, "trend_score": data['trend_score']}
 
-        return new_data
+    return new_data
+    
 
-
-async def change_trend_score(name: str, new_score: float) -> None:
+async def change_trend_score(name: str, score: float) -> None:
     data = await get_price(name)
 
-    new_score: float = (data['trend_score'] + new_score) * 0.9
+    new_score: float = (data['trend_score'] + score) * 0.9
     new_score = max(min(new_score, 100), -100)
 
     await db.update_data("coins", {"trend_score": new_score}, {"name": name})
@@ -173,6 +168,7 @@ async def build_amount_prompt(id: int, action: CoinActions, currency: str, *, in
     :param include_diff: bool-значение. При True в строчке появляется процент изменений
     :return: str-text
     """
+
     verb = {CoinActions.BUY: "приобрести", CoinActions.SELL: "продать"}[action]
 
     user_data = await get_profile(id)
@@ -199,6 +195,9 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
     :param bot: Bot
     :return: None, только присылает сообщение
     """
+    if message.from_user is None:
+        return
+    
     user_id = message.from_user.id
 
     data = await state.get_data()
@@ -238,51 +237,60 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
 
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     """
-    Функция, которая производит взаимодействие с валютами. Является участницей цепочки из 2ух функция
+    Функция, которая производит взаимодействие с валютами. Является участницей цепочки из 2ух функций
 
     :param call: CallbackQuery
     :param state: FSMContext
     :return: None, меняет сообщение
     """
 
-    user_id = call.from_user.id
+    if call.message is None:
+        return
 
+    user_id = call.from_user.id
     data = await state.get_data()
     currency: str = data['currency']
     amount = float(data['amount'])
 
     price_data = await get_price(currency, is_round=False)
     user_data = await get_profile(user_id)
-
     last_price: float = price_data['cost'] * amount
-
-    # TODO: много повторений в коде, надо исправить
 
     if amount <= 0:
         await call.message.answer('<b>❌ Число должно быть больше 0</b>')
         return
-    elif data['type'] == CoinActions.BUY:
+
+    if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
             await call.message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
-        else:
-            balance_rubles: float = user_data['rubles'] - last_price
-            balance_currency: float = user_data[currency] + amount
-            text = f"✅ <b>Успешная покупка {amount} {currency.upper()}!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
-            
-            await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
-
+        balance_rubles = user_data['rubles'] - last_price
+        balance_currency = user_data[currency] + amount
+        action_word = "покупка"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
             await call.message.answer('<b>❌ Недостаточно средств для совершения транзакции</b>')
             return
-        else:
-            balance_rubles: float = user_data['rubles'] + last_price
-            balance_currency: float = user_data[currency] - amount
-            text = f"✅ <b>Успешная продажа {amount} {currency.upper()}!</b>\n\n<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n<i>Не забывайте, что все акции и валюты явлюятся вымышленными</i>"
+        balance_rubles = user_data['rubles'] + last_price
+        balance_currency = user_data[currency] - amount
+        action_word = "продажа"
+    else:
+        await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
+        return
 
-            await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
+    text = (
+        f"✅ <b>Успешная {action_word} {amount} {currency.upper()}!</b>\n\n"
+        f"<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n"
+        f"<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n"
+        f"<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n"
+        f"<i>Не забывайте, что все акции и валюты являются вымышленными</i>"
+    )
 
+    await db.update_data(
+        "users",
+        {"rubles": balance_rubles, currency: balance_currency},
+        {"id": user_id},
+    )
     await state.clear()
     await call.message.answer(text)
 
@@ -409,6 +417,9 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     :return: None 
     """
 
+    if call.message is None:
+        return
+
     profile = await get_profile(user_id)
 
     if not is_free and profile['box'] < amount:
@@ -423,8 +434,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     user_data = await db.select_data("users", "items", {"id": user_id})
     user_loot = loads(user_data['items']) if user_data and user_data['items'] else []
 
-    boxes_balance: dict[int, int] = {"balance": profile['box'], "left": profile['box']}
-    ruble_balance: dict[float, int | float] = {"balance": profile['rubles'], "compensation": 0}
+    boxes_balance: dict[str, int] = {"balance": profile['box'], "left": profile['box']}
+    ruble_balance: dict[str, int | float] = {"balance": profile['rubles'], "compensation": 0}
     obtained_items = await process_box_rewards(amount, boxes_balance, ruble_balance, user_loot, is_free)
 
     await update_box_data(user_loot, ruble_balance['balance'], boxes_balance['left'], user_id)
@@ -434,13 +445,13 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     await call.message.answer(result_message)
 
 
-async def show_items(user_id: int, call: CallbackQuery, inline: InlineKeyboardMarkup):
+async def show_items(user_id: int, call: CallbackQuery):
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     res = await db.select_data("users", ["items"], {"id": user_id})
 
     user_loot = loads(res['items']) if res and res['items'] else []
 
-    user_items_dict = {}
+    user_items_dict: dict[int, int] = {}
     for user_item in user_loot:
         user_items_dict[user_item['id']] = user_items_dict.get(user_item['id'], 0) + user_item.get('count', 0)
 
@@ -471,7 +482,10 @@ async def show_items(user_id: int, call: CallbackQuery, inline: InlineKeyboardMa
 
         text += "\n"
 
-    return await call.message.edit_text(text, reply_markup=inline.items_buttons)
+    if isinstance(call.message, Message):
+        return await call.message.edit_text(text, reply_markup=items_buttons)
+    else:
+        return
 
 
 async def change_all_coins(bot: Bot):
@@ -509,7 +523,7 @@ async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: 
     return table
 
 
-async def send_profile(user_id: int, username: str, message: Message | CallbackQuery) -> None:
+async def send_profile(user_id: int, username: str | None, message: Message | CallbackQuery) -> None:
     """
     Функция для отправки сообщения с профилем
 
@@ -535,13 +549,18 @@ async def send_profile(user_id: int, username: str, message: Message | CallbackQ
         ('BOX', data['box'], '—')
     ], total_value)
 
-    text = f"<b>📋 Профиль пользователя @{username}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
+    username_text = f"@{username}" if username else ""
+
+    text = f"<b>📋 Профиль пользователя {username_text}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
 
     if isinstance(message, Message):
         await message.answer(text, reply_markup=profile_buttons)
     elif isinstance(message, CallbackQuery):
-        await message.message.edit_text(text, reply_markup=profile_buttons)
-        await message.answer()
+        if message.message is not None and isinstance(message.message, Message):
+            await message.message.edit_text(text, reply_markup=profile_buttons)
+            await message.answer()
+        else:
+            await message.answer(text, reply_markup=profile_buttons)
 
 
 async def check_casino_balance(user_id):
