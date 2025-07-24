@@ -2,6 +2,7 @@
 # ST Bank
 
 [![CodeFactor](https://www.codefactor.io/repository/github/zenqst/st-bank/badge)](https://www.codefactor.io/repository/github/zenqst/st-bank)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/d07e3d49cbf24455862e4b80184e5f67)](https://app.codacy.com/gh/zenqst/ST-Bank/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Python](https://img.shields.io/badge/language-Python-blue.svg)](https://github.com/zenqst/ST-Bank)
 [![Last Commit](https://img.shields.io/github/last-commit/zenqst/ST-Bank.svg)](https://github.com/zenqst/ST-Bank/commits/dev)
 [![Repo Size](https://img.shields.io/github/repo-size/zenqst/ST-Bank.svg)](https://github.com/zenqst/ST-Bank)

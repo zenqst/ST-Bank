@@ -1,6 +1,7 @@
 import random as rn
 from asyncio import sleep as asleep
 from json import dumps, loads
+from typing import Any
 
 import prettytable as pt
 from aiogram import Bot
@@ -142,7 +143,7 @@ async def change_coin(name: str, bot: Bot) -> None:
     if roll <= chance:
         random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
 
-        await bot.send_message(config.admin_id, f"<b>Валюта {name} резко изменила цену из-за trend points</b>", reply_markup=main)
+        await bot.send_message(config.admin_id, f"<b>Валюта {name} резко изменила цену из-за trend points ({trend_score})</b>", reply_markup=main)
         await change_trend_score(name, 0)
     elif coin_info['cost'] <= min_price or rn.choice([True, False]):
         random_percent = round(rn.uniform(min_growth, max_growth), 4)
@@ -284,6 +285,117 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     await call.message.answer(text)
 
 
+async def find_loot_item(user_loot: list[dict[str, Any]], item_id: int) -> dict[str, Any] | None:
+    for item in user_loot:
+        if item.get('id') == item_id:
+            return item
+    return None
+
+
+async def update_box_data(user_loot: list[dict[str, Any]], ruble_balance: float, boxes_left: float, user_id: int) -> None:
+    """
+    Простая функция, которая обновляет данные о пользователе, связанные с Боксами
+
+    :param user_loot: Ожидаем user_loot
+    :param ruble_balance: Ожидаем текущий баланс рублей (с компенсацией)
+    :param boxes_left: Ожидаем boxes_balance['left']
+    :param user_id: Айди юзера
+    :return: None
+    """
+
+    await db.update_data('users', {
+            'items': dumps(user_loot),
+            'rubles': ruble_balance,
+            'box': boxes_left
+        }, {'id': user_id})
+
+
+async def create_result_message(obtained_items: list[tuple[str, str]], amount: int, ruble_balance: dict[str, int | float], boxes_balance: dict[str, int]) -> str:
+    """
+    Функция, которая превращает некоторые данные в сообщение об открытии боксов
+
+    :param obtained_items: Список предметов
+    :param ruble_balance: dict с рублями
+    :param boxes_balance: dict с боксами
+    :return: Сообщение для вывода
+    """
+
+    obtained_items.sort(key=lambda x: config.rarities[x[0]]['order'])
+    items_text = "\n".join(item[1] for item in obtained_items) or "— ничего не выпало —"
+
+    comp_text = f"[+{ruble_balance['compensation']} RUB]" if ruble_balance['compensation'] > 0 else ""
+
+    boxes_compensation = boxes_balance['balance'] - boxes_balance['left']
+
+    result_message = (
+        "<b>🎉 Поздравляем!</b>\n\n"
+        f"<i>После открытия {amount} BOX, вы получили:</i>\n"
+        f"{items_text}\n\n"
+        "<i>После открытия изменился ваш баланс:</i>\n"
+        f"<b>Баланс RUB:</b> {round(ruble_balance['balance'], 2)} <i>{comp_text}</i>\n"
+        f"<b>Баланс BOX:</b> {boxes_balance['left']} <i>[-{boxes_compensation} BOX]</i>\n"
+    )
+
+    return result_message
+
+
+async def process_box_rewards(amount: int, boxes_balance: dict[str, int], ruble_balance: dict[str, int | float], user_loot: list[dict[str, Any]], is_free: bool) -> list[tuple[str, str]]:
+    """
+    Функция, которая открывает указанное количество боксов и возвращает список полученных предметов
+    
+    :param amount: Количество открываемых боксов
+    :param boxes_balance: Текущий баланс боксов
+    :param ruble_balance: Баланс RUB
+    :param user_loot: Инвентарь пользователя
+    :param is_free: Если True, не тратит боксы
+    :return: Список кортежей
+    """
+    
+    obtained_items = []
+    all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
+    rarities = list(config.rarities.keys())
+    weights = [config.rarities[r]['chance'] for r in rarities]
+    lucky_chance = 0.1  # 10%
+
+    for _ in range(amount):
+        if boxes_balance['balance'] <= 0 and not is_free:
+            break
+
+        selected_rarity = rn.choices(rarities, weights=weights, k=1)[0]
+        rarity_conf = config.rarities[selected_rarity]
+
+        rarity_name = rarity_conf['name']
+        available_items = [item for item in all_items if str(item['rarity']) == rarity_name]
+
+        if not available_items:
+            continue
+
+        selected_item = rn.choice(available_items)
+        item_id = selected_item['id']
+        item_name = selected_item['name']
+
+        compensation_text = ""
+        loot_item = await find_loot_item(user_loot, item_id)
+        if loot_item:
+            loot_item['count'] += 1
+            compensation = rarity_conf['compensation']
+            ruble_balance['compensation'] += compensation
+            ruble_balance['balance'] += compensation
+            compensation_text = f"[+{compensation} RUB]"
+        else:
+            user_loot.append({'id': item_id, 'count': 1})
+
+        obtained_items.append((
+            selected_rarity,
+            f"{rarity_conf['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
+        ))
+
+        if rn.random() > lucky_chance and not is_free:
+            boxes_balance['left'] -= 1
+
+    return obtained_items
+
+
 async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_free: bool = False) -> None:
     """
     Функция для открытия ящиков
@@ -306,83 +418,16 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
         )
         return
 
-    all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     user_data = await db.select_data("users", "items", {"id": user_id})
     user_loot = loads(user_data['items']) if user_data and user_data['items'] else []
 
-    obtained_items = []
-    boxes_left = profile['box']
-    boxes_balance = profile['box']
-    ruble_balance = profile['rubles']
-    compensation_total = 0
+    boxes_balance = {"balance": profile['box'], "left": profile['box']}
+    ruble_balance = {"balance": profile['rubles'], "compensation": 0}
+    obtained_items = await process_box_rewards(amount, boxes_balance, ruble_balance, user_loot, is_free)
 
-    lucky_chance = 0.1  # 10%
+    await update_box_data(user_loot, ruble_balance['balance'], boxes_balance['left'], user_id)
 
-    rarities = list(config.rarities.keys())
-    weights = [config.rarities[r]['chance'] for r in rarities]
-
-    def find_loot_item(item_id):
-        for item in user_loot:
-            if item.get('id') == item_id:
-                return item
-        return None
-
-    for _ in range(amount):
-        if boxes_left <= 0 and not is_free:
-            break
-
-        selected_rarity = rn.choices(rarities, weights=weights, k=1)[0]
-        rarity_conf = config.rarities[selected_rarity]
-
-        rarity_name = rarity_conf['name']
-        available_items = [item for item in all_items if str(item['rarity']) == rarity_name]
-        if not available_items:
-            continue
-
-        selected_item = rn.choice(available_items)
-        item_id = selected_item['id']
-        item_name = selected_item['name']
-
-        compensation_text = ""
-        loot_item = find_loot_item(item_id)
-        if loot_item:
-            loot_item['count'] += 1
-            compensation = rarity_conf['compensation']
-            ruble_balance += compensation
-            compensation_total += compensation
-            compensation_text = f"[+{compensation} RUB]"
-        else:
-            user_loot.append({'id': item_id, 'count': 1})
-
-        obtained_items.append((
-            selected_rarity,
-            f"{rarity_conf['icon']} <b>{item_name}</b> <i>{compensation_text}</i>"
-        ))
-
-        if rn.random() > lucky_chance and not is_free:
-            boxes_left -= 1
-
-    # Обновление данных
-    await db.update_data('users', {
-        'items': dumps(user_loot),
-        'rubles': ruble_balance,
-        'box': boxes_left
-    }, {'id': user_id})
-
-    # Сортировка по order
-    obtained_items.sort(key=lambda x: config.rarities[x[0]]['order'])
-    items_text = "\n".join(item[1] for item in obtained_items) or "— ничего не выпало —"
-
-    comp_text = f"[+{compensation_total} RUB]" if compensation_total > 0 else ""
-
-    result_message = (
-        "<b>🎉 Поздравляем!</b>\n\n"
-        f"<i>Открыв {amount} BOX, вы получили:</i>\n"
-        f"{items_text}\n\n"
-        "<i>После открытия изменился ваш баланс:</i>\n"
-        f"<b>Баланс RUB:</b> {round(ruble_balance, 2)} <i>{comp_text}</i>\n"
-        f"<b>Баланс BOX:</b> {boxes_left} <i>[-{boxes_balance - boxes_left} BOX]</i>\n"
-    )
+    result_message = await create_result_message(obtained_items, amount, ruble_balance, boxes_balance)
 
     await call.message.answer(result_message)
 
@@ -431,7 +476,9 @@ async def change_all_coins(bot: Bot):
     """
     Простая функция, которая получает рандомное время от 2.5 до 5 минут, а потом обновляет валюты
     """
+    print('Я ЖИВАЯ')
     random_time = rn.randint(150, 300)
+    print(random_time)
 
     await change_coin('st', bot)
     await change_coin('v', bot)
