@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from dotenv import load_dotenv
 
-from config_reader import config
+from config_reader import config, st, v
 from database.core import db
 from keyboards.inline import agree_buttons, profile_buttons
 from keyboards.reply import main
@@ -124,13 +124,14 @@ async def change_coin(name: str, bot: Bot) -> None:
     :param bot: Bot
     :return: None, обновляет запись в БД
     """
-    coin: object = globals()[name]
+    coins_map = {'st': st, 'v': v}
+    coin = coins_map.get(name)
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
     min_price: float = coin.min_price
     min_growth: float = coin.min_growth
     min_fall: float = coin.min_fall
-
+    
     coin_info = await get_price(name, is_round=False)
 
     trend_score: float = coin_info['trend_score']
@@ -476,9 +477,7 @@ async def change_all_coins(bot: Bot):
     """
     Простая функция, которая получает рандомное время от 2.5 до 5 минут, а потом обновляет валюты
     """
-    print('Я ЖИВАЯ')
     random_time = rn.randint(150, 300)
-    print(random_time)
 
     await change_coin('st', bot)
     await change_coin('v', bot)
