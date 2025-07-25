@@ -10,6 +10,8 @@ router = Router()
 @router.callback_query()
 async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
+    if call.message is None:
+        return
 
     if call.data == "cancel":
         await state.clear()
