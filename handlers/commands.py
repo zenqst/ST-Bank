@@ -1,9 +1,9 @@
 import asyncio
 import sys
+import tomllib
 from asyncio import sleep
 from logging import error
 from random import uniform
-import tomllib
 
 from aiogram import Bot, Router
 from aiogram.filters import Command, CommandObject, CommandStart

@@ -14,10 +14,11 @@ from millify import millify
 
 from config_reader import Coin, config, st, v
 from database.core import db
+from keyboards.builders import create_box_button
 from keyboards.inline import agree_buttons, items_buttons, profile_buttons
 from keyboards.reply import main
 from states.enums import CoinActions, Currencies, UserStatus
-from states.types import CurrencyKey, ProfileData, TableProfile, CurrencyInfo
+from states.types import CurrencyInfo, CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
 
@@ -86,27 +87,6 @@ async def diff_convert(diff: float) -> str:
     return text
 
 
-async def create_insufficient_funds_msg(balance: float, need: float, currency: Currencies) -> str:
-    """
-    Функция для преобразования данных в строку "Недостаточно средств"
-
-    :param balance: Текущий баланс валюты
-    :param need: Кол-во требуемой валюты
-    :param currency: Сама валюта
-    :return: Строка "Недостаточно средств"
-    """
-    currency_str = currency.value.upper()
-
-    text = (
-        f"<b>❌ Недостаточно {currency_str}!</b>\n\n"
-        f"<b>Баланс:</b> {round(balance, 2)} {currency_str}\n"
-        f"<b>Требуется:</b> {need} {currency_str}\n\n"
-        f"<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
-    )
-    
-    return text
-
-
 async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None) -> str:
     """
     Функция, которая преобразует данные в строку с уведомлением об успешной покупке или же недостатке средств
@@ -127,7 +107,7 @@ async def create_action_msg(currency: Currencies, *, balance: float | None, curr
         )
     elif action_word.lower() in actions:
         if currency_info['amount'] is None or currency_info['cost'] is None or balance is None:
-             text = (
+            text = (
                 "<b>❌ Неизвестная ошибка!</b>\n"
                 "Обратитесь к администратору!\n"
             )
@@ -580,7 +560,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
 
     result_message = await create_result_message(obtained_items, amount, ruble_balance, boxes_balance)
 
-    await call.message.answer(result_message)
+    inline_kb = await create_box_button(amount)
+    await call.message.answer(result_message, reply_markup=inline_kb)
 
 
 def _generate_user_items_text(available_items: list[dict], user_items_dict: dict[int, int]) -> str:
