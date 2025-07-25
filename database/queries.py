@@ -17,7 +17,7 @@ from database.core import db
 from keyboards.inline import agree_buttons, items_buttons, profile_buttons
 from keyboards.reply import main
 from states.enums import CoinActions, Currencies, UserStatus
-from states.types import CurrencyKey, ProfileData, TableProfile
+from states.types import CurrencyKey, ProfileData, TableProfile, CurrencyInfo
 
 load_dotenv()
 
@@ -104,6 +104,46 @@ async def create_insufficient_funds_msg(balance: float, need: float, currency: C
         f"<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
     )
     
+    return text
+
+
+async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None) -> str:
+    """
+    Функция, которая преобразует данные в строку с уведомлением об успешной покупке или же недостатке средств
+
+    :param currency: Валюта
+    :param balance: Баланс RUB
+    :param currency_info: Словарь CurrencyInfo (balance, cost, amount) или (balance, need) для недостатка средств
+    :param action_word: "покупка" или "продажа"
+    :return: Соответствующая строка
+    """
+    actions = ['покупка', 'продажа']
+    currency_str = currency.value.upper()
+    if action_word is None:
+        text = (
+            f"<b>❌ Недостаточно {currency_str}!</b>\n\n"
+            f"<b>Баланс:</b> {round(currency_info['balance'], 2)} {currency_str}\n"
+            f"<b>Требуется:</b> {currency_info['amount']} {currency_str}\n"
+        )
+    elif action_word.lower() in actions:
+        if currency_info['amount'] is None or currency_info['cost'] is None or balance is None:
+             text = (
+                "<b>❌ Неизвестная ошибка!</b>\n"
+                "Обратитесь к администратору!\n"
+            )
+        else:
+            text = (
+                f"✅ <b>Успешная {action_word} {currency_info['amount']} {currency_str}!</b>\n\n"
+                f"<b>Баланс RUB:</b> {round(balance, 2)}\n"
+                f"<b>Баланс {currency_str}:</b> {round(currency_info['balance'], 2)}\n"
+                f"<b>Цена за единицу:</b> {currency_info['cost']} RUB\n"
+            )
+    else:
+        text = (
+            "<b>❌ Неизвестная ошибка!</b>\n\n"
+            "Обратитесь к администратору!\n"
+        )
+    text += "\n<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
     return text
 
 
@@ -261,7 +301,19 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         return
     elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            currency_info: CurrencyInfo = {
+                'balance': user_data['rubles'],
+                'cost': None,
+                'amount': last_price,
+            }
+
+            text = await create_action_msg(
+                Currencies.RUB,
+                balance=None,
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await message.answer(text)
             return
         else:
@@ -269,7 +321,19 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
             text = f"После покупки <b>{amount} {currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            currency_info: CurrencyInfo = {
+                'balance': user_data[currency],
+                'cost': None,
+                'amount': amount,
+            }
+
+            text = await create_action_msg(
+                Currencies(currency),
+                balance=user_data['rubles'],
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await message.answer(text)
             return
         else:
@@ -326,12 +390,17 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
 
-    text = (
-        f"✅ <b>Успешная {action_word} {amount} {currency.upper()}!</b>\n\n"
-        f"<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n"
-        f"<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n"
-        f"<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n"
-        f"<i>Не забывайте, что все акции и валюты являются вымышленными</i>"
+    currency_info: CurrencyInfo = {
+        'balance': balance_currency,
+        'cost': price_data['cost'],
+        'amount': amount,
+    }
+
+    text = await create_action_msg(
+        Currencies(currency),
+        balance=balance_rubles,
+        currency_info=currency_info,
+        action_word=action_word
     )
 
     await db.update_data(

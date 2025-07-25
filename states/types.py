@@ -34,5 +34,11 @@ class ProfileData(TypedDict):
     casino_pts: int
 
 
+class CurrencyInfo(TypedDict):
+    balance: float
+    cost: float | None
+    amount: float | None
+
+
 TableProfile = list[tuple[str, int | float | str, str]]
 CurrencyKey = Literal['rubles', 'st', 'v', 'box']

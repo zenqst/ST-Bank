@@ -3,6 +3,7 @@ import sys
 from asyncio import sleep
 from logging import error
 from random import uniform
+import tomllib
 
 from aiogram import Bot, Router
 from aiogram.filters import Command, CommandObject, CommandStart
@@ -18,6 +19,12 @@ from states.enums import UserStatus
 router = Router()
 
 
+async def get_version_from_pyproject() -> str:
+    with open("pyproject.toml", "rb") as f:
+        data = tomllib.load(f)
+    return data["project"]["version"]
+
+
 @router.message(CommandStart())
 async def start(message: Message):
     if message.from_user is None:
@@ -28,7 +35,9 @@ async def start(message: Message):
     
     keyboard = register if status == UserStatus.NOT_FOUND else main
 
-    await message.answer(f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал в бот <b>ST Bank</b> ({config.version[0]})\n\nЗдесь тебе придётся торговать акциями, открывать боксы, фиксировать <s>убытки</s> прибыль", reply_markup=keyboard)
+    version = await get_version_from_pyproject()
+
+    await message.answer(f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал в бот <b>ST Bank</b> (v{version})\n\nЗдесь тебе придётся торговать акциями, открывать боксы, фиксировать <s>убытки</s> прибыль", reply_markup=keyboard)
 
 
 @router.message(Command("check"))
