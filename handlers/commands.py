@@ -13,7 +13,13 @@ from aiogram.utils.text_decorations import html_decoration
 
 from config_reader import config
 from database.core import db
-from database.queries import change_coin, check_casino_balance, check_profile, send_broadcast_message, calculate_precise_growth_chance
+from database.queries import (
+    calculate_precise_growth_chance,
+    change_coin,
+    check_casino_balance,
+    check_profile,
+    send_broadcast_message,
+)
 from keyboards.reply import main, register
 from states.enums import UserStatus
 from states.fsm_states import BroadcastText
@@ -87,6 +93,7 @@ async def interaction_amount_handler(message: Message, state: FSMContext, bot: B
     
     await state.update_data(sending_text=formatted_text)
     await send_broadcast_message(state, bot)
+
 
 @router.message(Command("game"))
 async def handler_game(message: Message): 

@@ -1,16 +1,17 @@
+import asyncio
+import logging
 import math
 import random as rn
 import secrets
-import asyncio
 from json import dumps, loads
 from typing import Any
-import logging
 
 import prettytable as pt
 from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from aiogram.exceptions import TelegramAPIError
+from asyncpg.exceptions import PostgresError
 from dotenv import load_dotenv
 from millify import millify
 
@@ -236,10 +237,9 @@ async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -
             # Тренд сработал
             if trend_score > 0:
                 up_count += 1
-        else:
-            # Случайное изменение
-            if coin_info['cost'] <= coin.min_price or secrets.choice([True, False]):
-                up_count += 1
+        # Случайное изменение
+        elif coin_info['cost'] <= coin.min_price or secrets.choice([True, False]):
+            up_count += 1
             # иначе падение, не считаем
     
     return (up_count / simulations) * 100
@@ -601,7 +601,19 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     profile = await get_profile(user_id)
 
     if not is_free and profile['box'] < amount:
-        text = await create_insufficient_funds_msg(profile['box'], amount, Currencies.BOX)
+        currency_info: CurrencyInfo = {
+                'balance': profile['box'],
+                'cost': None,
+                'amount': amount,
+            }
+
+        text = await create_action_msg(
+            Currencies.BOX,
+            balance=None,
+            currency_info=currency_info,
+            action_word=None
+        )
+        
         await call.message.answer(text)
         return
 
@@ -697,7 +709,7 @@ async def change_all_coins(bot: Bot):
 
     await change_coin('st', bot)
     await change_coin('v', bot)
-    await asleep(random_time)
+    await asyncio.sleep(random_time)
 
 
 async def format_number(num: float) -> str:
@@ -795,7 +807,7 @@ async def send_single_message(bot: Bot, user_id: int, text: str) -> None:
 async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
     try:
         all_users: list[dict[str, Any]] = await db.select_data("users", "*", fetch_all=True)
-    except Exception as e:
+    except PostgresError as e:
         logger.error("Ошибка при получении списка пользователей: %s", e)
         return
 
