@@ -807,8 +807,8 @@ async def send_single_message(bot: Bot, user_id: int, text: str) -> None:
 async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
     try:
         all_users: list[dict[str, Any]] = await db.select_data("users", "*", fetch_all=True)
-    except PostgresError as e:
-        logger.exception("Ошибка при получении списка пользователей: %s", e)
+    except PostgresError:
+        logger.exception("Ошибка при получении списка пользователей: %s")
         return
 
     if not all_users:
@@ -845,8 +845,8 @@ async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
             config.admin_id,
             f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}"
         )
-    except TelegramAPIError as e:
-        logger.exception("Не удалось отправить отчёт админу: %s", e)
+    except TelegramAPIError:
+        logger.exception("Не удалось отправить отчёт админу: %s")
 
 
 async def check_casino_balance(user_id):
