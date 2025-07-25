@@ -11,6 +11,7 @@ class Coin:
 
 class RarityInfo(TypedDict):
     name: str
+    display_name: str
     icon: str
     chance: int
     compensation: int

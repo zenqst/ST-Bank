@@ -45,6 +45,7 @@ async def change(message: Message, bot: Bot):
     await change_coin("st", bot)
     await message.answer("Валюта ST изменена")
 
+
 @router.message(Command("open"))
 async def open_box_handler(message: Message, command: CommandObject):
     amount = int(command.args)

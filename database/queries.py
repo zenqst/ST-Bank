@@ -1,9 +1,9 @@
 import math
 import random as rn
+import secrets
 from asyncio import sleep as asleep
 from json import dumps, loads
 from typing import Any
-import secrets
 
 import prettytable as pt
 from aiogram import Bot
@@ -537,7 +537,7 @@ async def build_rarity_section(
     :param user_items_dict: Словарь {item_id: count} пользователя
     :return: Текст для данной редкости
     """
-    name = info['name']
+    name = info['display_name']
     icon = info['icon']
     chance = info['chance']
 
@@ -546,7 +546,7 @@ async def build_rarity_section(
     item_count = len(available_items)
 
     if not user_items_dict:
-        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
+        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
 
     count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
 
@@ -556,7 +556,7 @@ async def build_rarity_section(
         section_text += f"<b>{count_with_user}</b> из {item_count}\n"
         section_text += _generate_user_items_text(available_items, user_items_dict)
 
-    section_text += "\n"
+    section_text += "\n\n"
     return section_text
 
 
