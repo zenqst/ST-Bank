@@ -19,7 +19,7 @@ class UserCheckMiddleware(BaseMiddleware):
             data: dict[str, Any]
         ):
         if isinstance(event, Message):
-            if event.from_user is None:
+            if event.from_user is None or event.text is None:
                 return
             user_id = event.from_user.id
             text = event.text.lower() or ""
