@@ -848,6 +848,8 @@ async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
     except TelegramAPIError:
         logger.exception("Не удалось отправить отчёт админу: %s")
 
+    await state.clear()
+
 
 async def check_casino_balance(user_id):
     data = await db.select_data("users", "casino_pts", {"id": user_id})
