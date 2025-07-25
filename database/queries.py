@@ -34,7 +34,7 @@ async def register(user_id: int, username: str) -> UserStatus:
     status = await check_profile(user_id)
 
     if status == UserStatus.NOT_FOUND:
-        await db.insert_data("users", {"id": id, "username": username})
+        await db.insert_data("users", {"id": user_id, "username": username})
 
         return UserStatus.SUCCESS
     
@@ -211,6 +211,35 @@ async def change_coin(name: str, bot: Bot) -> None:
         await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>", reply_markup=main)
 
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
+
+
+async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:
+    """
+    Высокоточная оценка вероятности роста через симуляцию.
+    """
+    coin_info = await get_price(name, is_round=False)
+    trend_score: float = coin_info['trend_score']
+    
+    coins_map = {'st': st, 'v': v}
+    coin = coins_map[name]
+    
+    up_count = 0
+    
+    for _ in range(simulations):
+        chance = min(100, abs(trend_score))
+        roll = secrets.randbelow(100) + 1
+        
+        if roll <= chance:
+            # Тренд сработал
+            if trend_score > 0:
+                up_count += 1
+        else:
+            # Случайное изменение
+            if coin_info['cost'] <= coin.min_price or secrets.choice([True, False]):
+                up_count += 1
+            # иначе падение, не считаем
+    
+    return (up_count / simulations) * 100
 
 
 async def build_amount_prompt(user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
@@ -598,12 +627,12 @@ async def build_rarity_section(
     item_count = len(available_items)
 
     if not user_items_dict:
-        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
 
     count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
 
     if count_with_user == 0:
-        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
     else:
         section_text += f"<b>{count_with_user}</b> из {item_count}\n"
         section_text += _generate_user_items_text(available_items, user_items_dict)

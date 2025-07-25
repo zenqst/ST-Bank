@@ -12,7 +12,7 @@ from aiogram.types import Message
 
 from config_reader import config
 from database.core import db
-from database.queries import change_coin, check_casino_balance, check_profile, open_box
+from database.queries import change_coin, check_casino_balance, check_profile, open_box, calculate_precise_growth_chance
 from keyboards.reply import main, register
 from states.enums import UserStatus
 
@@ -53,6 +53,12 @@ async def check(message: Message, state: FSMContext):
 async def change(message: Message, bot: Bot):
     await change_coin("st", bot)
     await message.answer("Валюта ST изменена")
+
+
+@router.message(Command("chance"))
+async def chance(message: Message, bot: Bot):
+    percent = await calculate_precise_growth_chance("st")
+    await message.answer(f"Шанс повышения ST: {percent}")
 
 
 @router.message(Command("open"))

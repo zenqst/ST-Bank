@@ -22,8 +22,9 @@ class UserCheckMiddleware(BaseMiddleware):
             if event.from_user is None:
                 return
             user_id = event.from_user.id
-            text = event.text or ""
-            if text.split()[0].lower() in self.skip_commands or self.skip_messages:
+            text = event.text.lower() or ""
+            command = text.split()[0].lower() if text else ""
+            if command in self.skip_commands or text in self.skip_messages:
                 return await handler(event, data)
 
             msg = event
@@ -34,7 +35,8 @@ class UserCheckMiddleware(BaseMiddleware):
             
             user_id = event.from_user.id
             data_str = event.data or ""
-            if data_str.split(":")[0] in self.skip_commands:
+            callback_data = data_str.split(":")[0] if data_str else ""
+            if callback_data in self.skip_commands or data_str in self.skip_messages:
                 return await handler(event, data)
             
             msg = event.message
