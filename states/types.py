@@ -11,6 +11,7 @@ class Coin:
 
 class RarityInfo(TypedDict):
     name: str
+    display_name: str
     icon: str
     chance: int
     compensation: int
@@ -31,6 +32,12 @@ class ProfileData(TypedDict):
     box: int
     items: Item
     casino_pts: int
+
+
+class CurrencyInfo(TypedDict):
+    balance: float
+    cost: float | None
+    amount: float | None
 
 
 TableProfile = list[tuple[str, int | float | str, str]]

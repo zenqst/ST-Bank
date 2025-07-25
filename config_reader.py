@@ -25,14 +25,13 @@ class Settings(BaseSettings):
     
 
 class Config:
-    version = 'v0.10.2'
     admin_id = 980316238
     rarities: dict[str, RarityInfo] = {
-        "legendary": {'name': 'legendary', 'icon': '🟡', 'chance': 1, 'compensation': 1100, 'order': 0},
-        "mythic": {'name': 'mythic', 'icon': '🔴', 'chance': 3, 'compensation': 700, 'order': 1},
-        "epic": {'name': 'epic', 'icon': '🟣', 'chance': 9, 'compensation': 500, 'order': 2},
-        "exotic": {'name': 'exotic', 'icon': '🟢', 'chance': 18, 'compensation': 300, 'order': 3},
-        "common": {'name': 'common', 'icon': '⚪️', 'chance': 69, 'compensation': 200, 'order': 4},
+        "legendary": {'name': 'legendary', 'display_name': 'Легендарная', 'icon': '🟡', 'chance': 1, 'compensation': 1100, 'order': 0},
+        "mythic": {'name': 'mythic', 'display_name': 'Мифическая', 'icon': '🔴', 'chance': 3, 'compensation': 700, 'order': 1},
+        "epic": {'name': 'epic', 'display_name': 'Эпическая', 'icon': '🟣', 'chance': 9, 'compensation': 500, 'order': 2},
+        "exotic": {'name': 'exotic', 'display_name': 'Экзотическая', 'icon': '🟢', 'chance': 18, 'compensation': 300, 'order': 3},
+        "common": {'name': 'common', 'display_name': 'Обычная', 'icon': '⚪️', 'chance': 69, 'compensation': 200, 'order': 4},
     }
 
 

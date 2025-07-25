@@ -1,25 +1,30 @@
+import asyncio
+import logging
 import math
 import random as rn
-from asyncio import sleep as asleep
+import secrets
 from json import dumps, loads
 from typing import Any
-import secrets
 
 import prettytable as pt
 from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from asyncpg.exceptions import PostgresError
 from dotenv import load_dotenv
 from millify import millify
 
 from config_reader import Coin, config, st, v
 from database.core import db
+from keyboards.builders import create_box_button
 from keyboards.inline import agree_buttons, items_buttons, profile_buttons
 from keyboards.reply import main
 from states.enums import CoinActions, Currencies, UserStatus
-from states.types import CurrencyKey, ProfileData, TableProfile
+from states.types import CurrencyInfo, CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 async def register(user_id: int, username: str) -> UserStatus:
@@ -33,7 +38,7 @@ async def register(user_id: int, username: str) -> UserStatus:
     status = await check_profile(user_id)
 
     if status == UserStatus.NOT_FOUND:
-        await db.insert_data("users", {"id": id, "username": username})
+        await db.insert_data("users", {"id": user_id, "username": username})
 
         return UserStatus.SUCCESS
     
@@ -86,24 +91,43 @@ async def diff_convert(diff: float) -> str:
     return text
 
 
-async def create_insufficient_funds_msg(balance: float, need: float, currency: Currencies) -> str:
+async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None) -> str:
     """
-    Функция для преобразования данных в строку "Недостаточно средств"
+    Функция, которая преобразует данные в строку с уведомлением об успешной покупке или же недостатке средств
 
-    :param balance: Текущий баланс валюты
-    :param need: Кол-во требуемой валюты
-    :param currency: Сама валюта
-    :return: Строка "Недостаточно средств"
+    :param currency: Валюта
+    :param balance: Баланс RUB
+    :param currency_info: Словарь CurrencyInfo (balance, cost, amount) или (balance, need) для недостатка средств
+    :param action_word: "покупка" или "продажа"
+    :return: Соответствующая строка
     """
+    actions = ['покупка', 'продажа']
     currency_str = currency.value.upper()
-
-    text = (
-        f"<b>❌ Недостаточно {currency_str}!</b>\n\n"
-        f"<b>Баланс:</b> {round(balance, 2)} {currency_str}\n"
-        f"<b>Требуется:</b> {need} {currency_str}\n\n"
-        f"<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
-    )
-    
+    if action_word is None:
+        text = (
+            f"<b>❌ Недостаточно {currency_str}!</b>\n\n"
+            f"<b>Баланс:</b> {round(currency_info['balance'], 2)} {currency_str}\n"
+            f"<b>Требуется:</b> {currency_info['amount']} {currency_str}\n"
+        )
+    elif action_word.lower() in actions:
+        if currency_info['amount'] is None or currency_info['cost'] is None or balance is None:
+            text = (
+                "<b>❌ Неизвестная ошибка!</b>\n"
+                "Обратитесь к администратору!\n"
+            )
+        else:
+            text = (
+                f"✅ <b>Успешная {action_word} {currency_info['amount']} {currency_str}!</b>\n\n"
+                f"<b>Баланс RUB:</b> {round(balance, 2)}\n"
+                f"<b>Баланс {currency_str}:</b> {round(currency_info['balance'], 2)}\n"
+                f"<b>Цена за единицу:</b> {currency_info['cost']} RUB\n"
+            )
+    else:
+        text = (
+            "<b>❌ Неизвестная ошибка!</b>\n\n"
+            "Обратитесь к администратору!\n"
+        )
+    text += "\n<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
     return text
 
 
@@ -193,6 +217,34 @@ async def change_coin(name: str, bot: Bot) -> None:
     await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
 
 
+async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:
+    """
+    Высокоточная оценка вероятности роста через симуляцию.
+    """
+    coin_info = await get_price(name, is_round=False)
+    trend_score: float = coin_info['trend_score']
+    
+    coins_map = {'st': st, 'v': v}
+    coin = coins_map[name]
+    
+    up_count = 0
+    
+    for _ in range(simulations):
+        chance = min(100, abs(trend_score))
+        roll = secrets.randbelow(100) + 1
+        
+        if roll <= chance:
+            # Тренд сработал
+            if trend_score > 0:
+                up_count += 1
+        # Случайное изменение
+        elif coin_info['cost'] <= coin.min_price or secrets.choice([True, False]):
+            up_count += 1
+            # иначе падение, не считаем
+    
+    return (up_count / simulations) * 100
+
+
 async def build_amount_prompt(user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
     """
     Функция, конвертирующая набор данных в определённый текст (при покупке/продаже)
@@ -222,8 +274,10 @@ async def build_amount_prompt(user_id: int, action: CoinActions, currency: Curre
         f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n"
         f"<b>Текущий баланс:</b> {round(balance, 2)} {balance_label}\n"
         f"<b>Текущая цена:</b> ~{price['cost']} RUB {diff}\n"
-        f"<b>Максимально возможное кол-во:</b> {max_rounded} {currency.upper()}"
     )
+
+    if action == CoinActions.BUY:
+        text += f"<b>Максимально возможное кол-во:</b> {max_rounded} {currency.upper()}"
 
     return text
 
@@ -259,7 +313,19 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         return
     elif data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            currency_info: CurrencyInfo = {
+                'balance': user_data['rubles'],
+                'cost': None,
+                'amount': last_price,
+            }
+
+            text = await create_action_msg(
+                Currencies.RUB,
+                balance=None,
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await message.answer(text)
             return
         else:
@@ -267,7 +333,19 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
             text = f"После покупки <b>{amount} {currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            currency_info: CurrencyInfo = {
+                'balance': user_data[currency],
+                'cost': None,
+                'amount': amount,
+            }
+
+            text = await create_action_msg(
+                Currencies(currency),
+                balance=user_data['rubles'],
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await message.answer(text)
             return
         else:
@@ -306,7 +384,19 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            currency_info: CurrencyInfo = {
+                'balance': user_data['rubles'],
+                'cost': None,
+                'amount': last_price,
+            }
+
+            text = await create_action_msg(
+                Currencies.RUB,
+                balance=None,
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await call.message.answer(text)
             return
         balance_rubles = user_data['rubles'] - last_price
@@ -314,7 +404,19 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         action_word = "покупка"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            currency_info: CurrencyInfo = {
+                'balance': user_data[currency],
+                'cost': None,
+                'amount': amount,
+            }
+
+            text = await create_action_msg(
+                Currencies(currency),
+                balance=user_data['rubles'],
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await call.message.answer(text)
             return
         balance_rubles = user_data['rubles'] + last_price
@@ -324,12 +426,17 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
 
-    text = (
-        f"✅ <b>Успешная {action_word} {amount} {currency.upper()}!</b>\n\n"
-        f"<b>Баланс RUB:</b> {round(balance_rubles, 2)}\n"
-        f"<b>Баланс {currency.upper()}:</b> {round(balance_currency, 2)}\n"
-        f"<b>Цена за 1 шт. на момент транзакции:</b> {price_data['cost']} RUB\n\n"
-        f"<i>Не забывайте, что все акции и валюты являются вымышленными</i>"
+    currency_info: CurrencyInfo = {
+        'balance': balance_currency,
+        'cost': price_data['cost'],
+        'amount': amount,
+    }
+
+    text = await create_action_msg(
+        Currencies(currency),
+        balance=balance_rubles,
+        currency_info=currency_info,
+        action_word=action_word
     )
 
     await db.update_data(
@@ -494,7 +601,19 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
     profile = await get_profile(user_id)
 
     if not is_free and profile['box'] < amount:
-        text = await create_insufficient_funds_msg(profile['box'], amount, Currencies.BOX)
+        currency_info: CurrencyInfo = {
+                'balance': profile['box'],
+                'cost': None,
+                'amount': amount,
+            }
+
+        text = await create_action_msg(
+            Currencies.BOX,
+            balance=None,
+            currency_info=currency_info,
+            action_word=None
+        )
+        
         await call.message.answer(text)
         return
 
@@ -509,7 +628,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
 
     result_message = await create_result_message(obtained_items, amount, ruble_balance, boxes_balance)
 
-    await call.message.answer(result_message)
+    inline_kb = await create_box_button(amount)
+    await call.message.answer(result_message, reply_markup=inline_kb)
 
 
 def _generate_user_items_text(available_items: list[dict], user_items_dict: dict[int, int]) -> str:
@@ -537,7 +657,7 @@ async def build_rarity_section(
     :param user_items_dict: Словарь {item_id: count} пользователя
     :return: Текст для данной редкости
     """
-    name = info['name']
+    name = info['display_name']
     icon = info['icon']
     chance = info['chance']
 
@@ -551,12 +671,12 @@ async def build_rarity_section(
     count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
 
     if count_with_user == 0:
-        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n"
+        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
     else:
         section_text += f"<b>{count_with_user}</b> из {item_count}\n"
         section_text += _generate_user_items_text(available_items, user_items_dict)
 
-    section_text += "\n"
+    section_text += "\n\n"
     return section_text
 
 
@@ -589,7 +709,7 @@ async def change_all_coins(bot: Bot):
 
     await change_coin('st', bot)
     await change_coin('v', bot)
-    await asleep(random_time)
+    await asyncio.sleep(random_time)
 
 
 async def format_number(num: float) -> str:
@@ -673,6 +793,60 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
             await message.answer()
         else:
             await message.answer(text, reply_markup=profile_buttons)
+
+
+async def send_single_message(bot: Bot, user_id: int, text: str) -> None:
+    try:
+        await bot.send_message(user_id, text)
+        await asyncio.sleep(0.05)
+    except TelegramAPIError as e:
+        logger.warning("Не удалось отправить сообщение пользователю %d: %s", user_id, e)
+        raise
+
+
+async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
+    try:
+        all_users: list[dict[str, Any]] = await db.select_data("users", "*", fetch_all=True)
+    except PostgresError:
+        logger.exception("Ошибка при получении списка пользователей: %s")
+        return
+
+    if not all_users:
+        await bot.send_message(config.admin_id, "Нет пользователей для рассылки.")
+        return
+
+    successful = 0
+    failed = 0
+    tasks = []
+    data = await state.get_data()
+    text = data['sending_text']
+
+    for user in all_users:
+        user_id = user.get("id")
+        if not user_id:
+            logger.warning("Пропущен пользователь без ID: %s", user)
+            failed += 1
+            continue
+
+        task = asyncio.create_task(send_single_message(bot, user_id, text))
+        tasks.append(task)
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error("Ошибка при отправке сообщения: %s", result)
+            failed += 1
+        else:
+            successful += 1
+
+    try:
+        await bot.send_message(
+            config.admin_id,
+            f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}"
+        )
+    except TelegramAPIError:
+        logger.exception("Не удалось отправить отчёт админу: %s")
 
 
 async def check_casino_balance(user_id):

@@ -6,3 +6,7 @@ class Interaction(StatesGroup):
     currency = State()
     type = State()
     msg_id = State()
+
+
+class BroadcastText(StatesGroup):
+    sending_text = State()
