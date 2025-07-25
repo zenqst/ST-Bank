@@ -222,8 +222,10 @@ async def build_amount_prompt(user_id: int, action: CoinActions, currency: Curre
         f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n"
         f"<b>Текущий баланс:</b> {round(balance, 2)} {balance_label}\n"
         f"<b>Текущая цена:</b> ~{price['cost']} RUB {diff}\n"
-        f"<b>Максимально возможное кол-во:</b> {max_rounded} {currency.upper()}"
     )
+
+    if action == CoinActions.BUY:
+        text += f"<b>Максимально возможное кол-во:</b> {max_rounded} {currency.upper()}"
 
     return text
 
