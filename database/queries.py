@@ -1,14 +1,16 @@
 import math
 import random as rn
 import secrets
-from asyncio import sleep as asleep
+import asyncio
 from json import dumps, loads
 from typing import Any
+import logging
 
 import prettytable as pt
 from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from aiogram.exceptions import TelegramAPIError
 from dotenv import load_dotenv
 from millify import millify
 
@@ -21,6 +23,7 @@ from states.enums import CoinActions, Currencies, UserStatus
 from states.types import CurrencyInfo, CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 async def register(user_id: int, username: str) -> UserStatus:
@@ -381,7 +384,19 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
-            text = await create_insufficient_funds_msg(user_data['rubles'], last_price, Currencies.RUB)
+            currency_info: CurrencyInfo = {
+                'balance': user_data['rubles'],
+                'cost': None,
+                'amount': last_price,
+            }
+
+            text = await create_action_msg(
+                Currencies.RUB,
+                balance=None,
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await call.message.answer(text)
             return
         balance_rubles = user_data['rubles'] - last_price
@@ -389,7 +404,19 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         action_word = "покупка"
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
-            text = await create_insufficient_funds_msg(user_data[currency], amount, Currencies(currency))
+            currency_info: CurrencyInfo = {
+                'balance': user_data[currency],
+                'cost': None,
+                'amount': amount,
+            }
+
+            text = await create_action_msg(
+                Currencies(currency),
+                balance=user_data['rubles'],
+                currency_info=currency_info,
+                action_word=None
+            )
+
             await call.message.answer(text)
             return
         balance_rubles = user_data['rubles'] + last_price
@@ -754,6 +781,60 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
             await message.answer()
         else:
             await message.answer(text, reply_markup=profile_buttons)
+
+
+async def send_single_message(bot: Bot, user_id: int, text: str) -> None:
+    try:
+        await bot.send_message(user_id, text)
+        await asyncio.sleep(0.05)
+    except TelegramAPIError as e:
+        logger.warning("Не удалось отправить сообщение пользователю %d: %s", user_id, e)
+        raise
+
+
+async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
+    try:
+        all_users: list[dict[str, Any]] = await db.select_data("users", "*", fetch_all=True)
+    except Exception as e:
+        logger.error("Ошибка при получении списка пользователей: %s", e)
+        return
+
+    if not all_users:
+        await bot.send_message(config.admin_id, "Нет пользователей для рассылки.")
+        return
+
+    successful = 0
+    failed = 0
+    tasks = []
+    data = await state.get_data()
+    text = data['sending_text']
+
+    for user in all_users:
+        user_id = user.get("id")
+        if not user_id:
+            logger.warning("Пропущен пользователь без ID: %s", user)
+            failed += 1
+            continue
+
+        task = asyncio.create_task(send_single_message(bot, user_id, text))
+        tasks.append(task)
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error("Ошибка при отправке сообщения: %s", result)
+            failed += 1
+        else:
+            successful += 1
+
+    try:
+        await bot.send_message(
+            config.admin_id,
+            f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}"
+        )
+    except TelegramAPIError as e:
+        logger.error("Не удалось отправить отчёт админу: %s", e)
 
 
 async def check_casino_balance(user_id):
