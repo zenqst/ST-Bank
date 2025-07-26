@@ -2,7 +2,8 @@ from aiogram import F, Router
 from aiogram.types import Message
 
 from database.queries import get_price, get_profile, register, send_profile
-from keyboards.inline import action_buttons, box_buttons
+from keyboards.builders import create_box_button
+from keyboards.inline import action_buttons
 from keyboards.reply import main
 from states.enums import UserStatus
 
@@ -50,4 +51,16 @@ async def boxes(message: Message):
     
     profile = await get_profile(message.from_user.id)
 
-    await message.answer(f"Меню взаимодействия с Боксами\n\n<b>Краткая сводка:</b>\nОткрытие Боксов — процесс, при котором вы тратите свои BOX, а взамен получаете предметы разных редкостей. Можно выбрать количество Боксов для открытия — от 1 до 10. Существует 10% шанс на то, что Бокс будет сохранён.\nПокупка Боксов — обычная покупка валюты BOX, но при этом цена всегда статична (может меняться лишь только при обновлениях).\n\n<b>Баланс BOX:</b> {profile['box']} BOX\n\n<i>Помните, что все предметы вымышлены, совпадения случайны.</i>", reply_markup=box_buttons)
+    inline_kb = await create_box_button(amount=None, box_balance=profile['box'])
+
+    text = (
+        "Меню взаимодействия с Боксами\n\n"
+        "<b>Краткая сводка:</b>\n"
+        "Открытие Боксов — процесс, при котором вы тратите свои BOX, а взамен получаете предметы разных редкостей. Можно выбрать количество Боксов для открытия — от 1 до 10. Существует 10% шанс на то, что Бокс будет сохранён.\n"
+        "Покупка Боксов — обычная покупка валюты BOX, но при этом цена всегда статична (может меняться лишь только при обновлениях).\n\n"
+        f"<b>Баланс BOX:</b> {profile['box']} BOX\n\n"
+        "<i>Помните, что все предметы вымышлены, совпадения случайны.</i>"
+    )
+
+    await message.answer(text, reply_markup=inline_kb)
+    

@@ -628,7 +628,7 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
 
     result_message = await create_result_message(obtained_items, amount, ruble_balance, boxes_balance)
 
-    inline_kb = await create_box_button(amount)
+    inline_kb = await create_box_button(amount=amount, box_balance=boxes_balance['left'])
     await call.message.answer(result_message, reply_markup=inline_kb)
 
 

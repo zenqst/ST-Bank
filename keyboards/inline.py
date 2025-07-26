@@ -23,8 +23,22 @@ profile_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text="📜 Список предметов", callback_data='items')
         ],
         [
+            InlineKeyboardButton(text="💸 Стать банкротом", callback_data="bankrupt")
+        ],
+        [
             InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenqst")
         ]
+    ]
+)
+
+bankrupt_buttons = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💔 Обанкротиться", callback_data='bankrupt_agree')
+        ],
+        [
+            InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
+        ],
     ]
 )
 
@@ -71,22 +85,6 @@ agree_buttons = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
         ]
-    ]
-)
-
-box_buttons = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(text="Открыть x1", callback_data=BoxCallback(type=CoinActions.OPEN, amount=1).pack()),
-            InlineKeyboardButton(text="Открыть x3", callback_data=BoxCallback(type=CoinActions.OPEN, amount=3).pack()),
-            InlineKeyboardButton(text="Открыть x10", callback_data=BoxCallback(type=CoinActions.OPEN, amount=10).pack()),
-        ],
-        [
-            InlineKeyboardButton(text="➕ Купить", callback_data=BoxCallback(type=CoinActions.BUY, amount=None).pack()),
-        ],
-        [
-            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel"),
-        ],
     ]
 )
 
