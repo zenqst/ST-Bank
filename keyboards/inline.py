@@ -24,6 +24,7 @@ class ReturnCallback(CallbackData, prefix="return"):
 profile_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
+            InlineKeyboardButton(text="📊 Статистика аккаунта", callback_data='stats'),
             InlineKeyboardButton(text="📜 Список предметов", callback_data='items')
         ],
         [

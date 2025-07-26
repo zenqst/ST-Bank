@@ -69,6 +69,21 @@ async def chance_handler(message: Message):
     await message.answer(f"Шанс повышения ST: {percent}")
 
 
+@router.message(Command("users"))
+async def users_handler(message: Message):
+    text = ""
+
+    users = await db.select_data("users", "*", fetch_all=True)
+
+    for i, user in enumerate(users):
+        username = user.get("username")
+        user_id = user.get("id")
+        text += f"{i + 1}. @{username} ({user_id})\n"
+    
+    text += f"\nОбщее кол-во пользователей: {len(users)}"
+    await message.answer(text)
+
+
 @router.message(Command("send"))
 async def send_text_handler(message: Message, state: FSMContext):
     await message.answer("<b>📝 В следующем сообщении отправьте текст для рассылки</b>")
