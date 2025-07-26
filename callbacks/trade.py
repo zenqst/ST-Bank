@@ -111,16 +111,19 @@ async def agree_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
 @router.message(Interaction.amount)
 async def interaction_amount_handler(message: Message, state: FSMContext, bot: Bot):
-    amount_text = message.text.replace(',', '.')
+    amount_text = message.text.replace(',', '.')    
+    data = await state.get_data()
     
     try:
         amount_float = float(amount_text)
 
-        if amount_float > 0:
+        if amount_float <= 0:
+            await message.answer("❌ <b>Пожалуйста, введите положительное число больше 0</b>", reply_markup=inline.cancel_button)
+        elif data['currency'] == 'box':
+            await message.answer("❌ <b>Пожалуйста, введите целое число</b>", reply_markup=inline.cancel_button)
+        else:
             await state.update_data(amount=amount_text)
             await adv_interaction(message, state, bot)
-        else:
-            await message.answer("❌ <b>Пожалуйста, введите положительное число больше 0</b>", reply_markup=inline.cancel_button)
     except ValueError:
         await message.answer("❌ <b>Пожалуйста, введите корректное число</b>", reply_markup=inline.cancel_button)
         return

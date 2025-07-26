@@ -8,7 +8,7 @@ from typing import Any
 
 import prettytable as pt
 from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from asyncpg.exceptions import PostgresError
@@ -287,9 +287,23 @@ async def timeout_checker(bot: Bot, chat_id: int, message_id: int, state: FSMCon
     await asyncio.sleep(timeout)
 
     current_state = await state.get_state()
+
     if current_state in {Interaction.amount.state, Interaction.confirmation.state}:
         await state.clear()
-        await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text="⏰<b> Время ожидания ответа истекло</b>", reply_markup=None)
+        try:
+            await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text="⏰<b> Время ожидания ответа истекло</b>",
+                reply_markup=None
+            )
+        except TelegramBadRequest as e:
+            if "message to edit not found" in str(e).lower():
+                logger.debug(f"Message {message_id} not found for timeout edit in chat {chat_id}")
+            else:
+                raise
+        except Exception:
+            logger.exception("Unexpected error in timeout_checker")
 
 
 async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None:
@@ -363,7 +377,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
     
     await state.set_state(Interaction.confirmation)
     msg = await message.answer(text, reply_markup=agree_buttons)
-    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=3))
 
 
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
