@@ -318,10 +318,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
 
     await bot.delete_message(chat_id=message.chat.id, message_id=data['msg_id'])
 
-    if amount <= 0:
-        await message.answer('<b>❌ Число должно быть больше 0</b>')
-        return
-    elif data['type'] == CoinActions.BUY:
+    if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
             currency_info: CurrencyInfo = {
                 'balance': user_data['rubles'],
@@ -389,10 +386,6 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     price_data = await get_price(currency, is_round=False)
     user_data = await get_profile(user_id)
     last_price: float = price_data['cost'] * amount
-
-    if amount <= 0:
-        await call.message.answer('<b>❌ Число должно быть больше 0</b>')
-        return
 
     if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
