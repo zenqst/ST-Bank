@@ -59,4 +59,3 @@ async def boxes(message: Message):
     )
 
     await message.answer(text, reply_markup=inline_kb)
-    

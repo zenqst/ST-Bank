@@ -1,6 +1,6 @@
 [project]
 name = "st-bank"
-version = "0.10.4"
+version = "0.11"
 description = "Telegram-bot"
 authors = [
     {name = "zenqst",email = "zenqst@gmail.com"}
@@ -19,7 +19,9 @@ dependencies = [
     "python-dotenv (>=1.1.1,<2.0.0)",
     "mypy (>=1.17.0,<2.0.0)",
     "types-cachetools (>=6.1.0.20250717,<7.0.0.0)",
-    "millify (>=0.1.1,<0.2.0)"
+    "millify (>=0.1.1,<0.2.0)",
+    "pytest (>=8.4.1,<9.0.0)",
+    "pytest-asyncio (>=1.1.0,<2.0.0)"
 ]
 
 
@@ -94,3 +96,6 @@ known-first-party = ["callbacks", "database", "handlers", "keyboards", "middlewa
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+pythonpath = "."

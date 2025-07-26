@@ -102,7 +102,7 @@ async def diff_convert(diff: float) -> str:
     return text
 
 
-async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None) -> str:
+async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None, profit: float | None) -> str:
     """
     Функция, которая преобразует данные в строку с уведомлением об успешной покупке или же недостатке средств
 
@@ -133,6 +133,8 @@ async def create_action_msg(currency: Currencies, *, balance: float | None, curr
                 f"<b>Баланс {currency_str}:</b> {round(currency_info['balance'], 2)}\n"
                 f"<b>Цена за единицу:</b> {currency_info['cost']} RUB\n"
             )
+            if profit:
+                text += f"<b>Прибыль:</b> {round(profit, 2)} RUB\n"
     else:
         text = (
             "<b>❌ Неизвестная ошибка!</b>\n\n"
@@ -420,7 +422,8 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
                 Currencies.RUB,
                 balance=None,
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await message.answer(text)
@@ -440,7 +443,8 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
                 Currencies(currency),
                 balance=user_data['rubles'],
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await message.answer(text)
@@ -477,6 +481,11 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     user_data = await get_profile(user_id)
     last_price: float = price_data['cost'] * amount
 
+    row = await db.select_data("users", "trades", {"id": user_id})
+    trades_json = row['trades'] or "{}"
+    trades = loads(trades_json)
+    profit = None
+
     if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
             currency_info: CurrencyInfo = {
@@ -489,7 +498,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
                 Currencies.RUB,
                 balance=None,
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await call.message.answer(text)
@@ -497,6 +507,13 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         balance_rubles = user_data['rubles'] - last_price
         balance_currency = user_data[currency] + amount
         action_word = "покупка"
+
+        new_trade = {"amount": amount, "price": price_data['cost']}
+
+        if currency not in trades:
+            trades[currency] = []
+
+        trades[currency].append(new_trade)
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
             currency_info: CurrencyInfo = {
@@ -509,7 +526,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
                 Currencies(currency),
                 balance=user_data['rubles'],
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await call.message.answer(text)
@@ -517,6 +535,35 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         balance_rubles = user_data['rubles'] + last_price
         balance_currency = user_data[currency] - amount
         action_word = "продажа"
+
+        if currency not in trades:
+            raise ValueError("Нет такой валюты в портфеле")
+        
+        lots = trades[currency]
+        profit = 0.0
+        new_lots = []
+        remaining = amount
+
+        for lot in lots:
+            if remaining <= 0:
+                new_lots.append(lot)
+                continue
+
+            lot_amount = lot["amount"]
+            lot_price = lot["price"]
+
+            if lot_amount <= remaining:
+                profit += lot_amount * (price_data['cost'] - lot_price)
+                remaining -= lot_amount
+            else:
+                profit += remaining * (price_data['cost'] - lot_price)
+                lot["amount"] -= remaining
+                new_lots.append(lot)
+                remaining = 0
+
+        if remaining > 0:
+            raise ValueError("Недостаточно валюты для продажи")
+        trades[currency] = new_lots
     else:
         await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
@@ -531,12 +578,13 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         Currencies(currency),
         balance=balance_rubles,
         currency_info=currency_info,
-        action_word=action_word
+        action_word=action_word,
+        profit=profit
     )
 
     await db.update_data(
         "users",
-        {"rubles": balance_rubles, currency: balance_currency},
+        {"rubles": balance_rubles, currency: balance_currency, "trades": dumps(trades)},
         {"id": user_id},
     )
     await state.clear()
