@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from database.core import db
-from database.queries import send_profile, show_items
+from database.queries import show_items
 from keyboards.inline import bankrupt_buttons
 
 router = Router()
@@ -12,7 +12,6 @@ router = Router()
 @router.callback_query()
 async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     user_id = call.from_user.id
-    username = call.from_user.username
 
     if call.message is None:
         return
@@ -25,10 +24,6 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     elif call.data == "items":
         await bot.answer_callback_query(call.id)
         await show_items(user_id, call)
-
-    elif call.data == "return_profile":
-        await bot.answer_callback_query(call.id)
-        await send_profile(user_id, username, call)
 
     elif call.data == "bankrupt":
         await bot.answer_callback_query(call.id)

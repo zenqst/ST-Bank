@@ -1,7 +1,7 @@
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from states.enums import CoinActions, Currencies
+from states.enums import CoinActions, Currencies, Steps
 
 
 class ActionCallback(CallbackData, prefix="type"):
@@ -15,6 +15,10 @@ class CurrencyCallback(CallbackData, prefix="curr"):
 class BoxCallback(CallbackData, prefix="box"):
     type: CoinActions
     amount: None | int
+
+
+class ReturnCallback(CallbackData, prefix="return"):
+    prev_step: Steps
 
 
 profile_buttons = InlineKeyboardMarkup(
@@ -61,6 +65,9 @@ choose_currency_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text="V", callback_data=CurrencyCallback(currency=Currencies.V).pack())
         ],
         [
+            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.ACTIONS).pack())
+        ],
+        [
             InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
         ],
     ]
@@ -70,6 +77,9 @@ update_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
             InlineKeyboardButton(text="🔄 Получить текущую цену", callback_data="update")
+        ],
+        [
+            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.CURRENCIES).pack())
         ],
         [
             InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
@@ -91,7 +101,7 @@ agree_buttons = InlineKeyboardMarkup(
 items_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="⬅️ Вернуться", callback_data='return_profile')
+            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.PROFILE).pack())
         ],
     ]
 )

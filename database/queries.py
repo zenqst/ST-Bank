@@ -18,7 +18,17 @@ from millify import millify
 from config_reader import Coin, config, st, v
 from database.core import db
 from keyboards.builders import create_box_button
-from keyboards.inline import agree_buttons, items_buttons, profile_buttons
+from keyboards.inline import (
+    ActionCallback,
+    CurrencyCallback,
+    ReturnCallback,
+    action_buttons,
+    agree_buttons,
+    choose_currency_buttons,
+    items_buttons,
+    profile_buttons,
+    update_buttons,
+)
 from keyboards.reply import main
 from states.enums import CoinActions, Currencies, UserStatus
 from states.fsm_states import Interaction
@@ -151,6 +161,72 @@ async def get_price(name: str, is_round: bool = True) -> dict:
 
     return new_data
     
+
+async def send_prices_msg(message: Message | CallbackQuery) -> None:
+    """
+    Функция, которая отправляет текущие цены
+
+    :param message: Message or CallbackQuery
+    :return: None
+    """
+    st_price = await get_price("st")
+    v_price = await get_price("v")
+
+    text = (
+        "<b>Текущие цены:</b>\n"
+        f"1 ST = {st_price['cost']} RUB <i>({st_price['diff']})</i>\n"
+        f"1 V = {v_price['cost']} RUB <i>({v_price['diff']})</i>"
+    )
+
+    if isinstance(message, Message):
+        await message.answer(text, reply_markup=action_buttons)
+    elif isinstance(message, CallbackQuery):
+        if message.message is not None and isinstance(message.message, Message):
+            await message.message.edit_text(text, reply_markup=action_buttons)
+            await message.answer()
+        else:
+            await message.answer(text, reply_markup=action_buttons)
+
+
+async def edit_currencies_handler(state: FSMContext, callback_data: ActionCallback | ReturnCallback, bot: Bot, call: CallbackQuery) -> None:
+    await state.set_state(Interaction.type)  # приводим в активность type из interaction
+
+    if isinstance(callback_data, ActionCallback):
+        await state.update_data(type=callback_data.action_type)
+
+    await bot.answer_callback_query(call.id)
+
+    text = (
+        "Выберите валюту для взаимодействия\n\n"
+        "<b>Краткая сводка:</b>\n"
+        "<b>ST</b> — валюта для начинающих, является более стабильной. Помогает новичкам обрести свой первый капитал.\n"
+        "<b>V</b> — валюта, которая уже является более реалистичной. В ней цена может в любой момент обвалиться почти в 0, а может, и вырасти на тысячи рублей."
+    )
+
+    await call.message.edit_text(text, reply_markup=choose_currency_buttons)
+
+
+async def edit_amount_handler(state: FSMContext, callback_data: CurrencyCallback, bot: Bot, call: CallbackQuery) -> None:
+    user_id = call.from_user.id
+
+    interaction_data = await state.get_data()
+    await state.set_state(Interaction.currency)
+    await bot.answer_callback_query(call.id)
+
+    currency = callback_data.currency
+    await state.update_data(currency=currency)
+
+    text = await build_amount_prompt(user_id, interaction_data['type'], currency)
+
+    msg = await call.message.edit_text(text, reply_markup=update_buttons)
+
+    await state.set_state(Interaction.msg_id)
+    await state.update_data(msg_id=msg.message_id)
+
+    await state.set_state(Interaction.amount)
+
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
+
 
 async def change_trend_score(name: str, score: float) -> None:
     data = await get_price(name)
@@ -377,7 +453,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
     
     await state.set_state(Interaction.confirmation)
     msg = await message.answer(text, reply_markup=agree_buttons)
-    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=3))
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
 
 
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:

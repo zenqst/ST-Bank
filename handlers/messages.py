@@ -1,9 +1,8 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from database.queries import get_price, get_profile, register, send_profile
+from database.queries import get_profile, register, send_prices_msg, send_profile
 from keyboards.builders import create_box_button
-from keyboards.inline import action_buttons
 from keyboards.reply import main
 from states.enums import UserStatus
 
@@ -38,10 +37,7 @@ async def profile(message: Message):
 
 @router.message(F.text.lower().in_(["📊 торговать"]))
 async def trade(message: Message):
-    st_price = await get_price("st")
-    v_price = await get_price("v")
-
-    await message.answer(f"<b>Текущие цены:</b>\n1 ST = {st_price['cost']} RUB <i>({st_price['diff']})</i>\n1 V = {v_price['cost']} RUB <i>({v_price['diff']})</i>", reply_markup=action_buttons)
+    await send_prices_msg(message)
 
 
 @router.message(F.text.lower().in_(["📦 открыть бокс"]))

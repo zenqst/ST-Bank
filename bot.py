@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from callbacks import common, trade
+from callbacks import common, returns, trade
 from config_reader import settings
 from database.core import db
 from database.queries import change_all_coins
@@ -35,6 +35,7 @@ async def main():
     dp.include_routers(
         commands.router,
         messages.router,
+        returns.router,
         trade.router,
         common.router
     )
