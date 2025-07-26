@@ -1,12 +1,14 @@
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+import asyncio
 
 from database.queries import (
     adv_interaction,
     build_amount_prompt,
     final_interaction,
     open_box,
+    timeout_checker
 )
 from keyboards import inline
 from keyboards.inline import ActionCallback, BoxCallback, CurrencyCallback
@@ -44,6 +46,8 @@ async def currency_handler(call: CallbackQuery, callback_data: CurrencyCallback,
     await state.update_data(msg_id=msg.message_id)
 
     await state.set_state(Interaction.amount)
+
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
 
 
 @router.callback_query(BoxCallback.filter())
@@ -93,9 +97,13 @@ async def update_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
     await state.set_state(Interaction.amount)
 
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
+
 
 @router.callback_query(F.data == "agree")
 async def agree_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
+    await state.update_data(confirmation=True)
+
     await final_interaction(call, state)
     await call.message.delete()
     await bot.answer_callback_query(call.id)

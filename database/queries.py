@@ -21,6 +21,7 @@ from keyboards.builders import create_box_button
 from keyboards.inline import agree_buttons, items_buttons, profile_buttons
 from keyboards.reply import main
 from states.enums import CoinActions, Currencies, UserStatus
+from states.fsm_states import Interaction
 from states.types import CurrencyInfo, CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
@@ -282,6 +283,15 @@ async def build_amount_prompt(user_id: int, action: CoinActions, currency: Curre
     return text
 
 
+async def timeout_checker(bot: Bot, chat_id: int, message_id: int, state: FSMContext, timeout: int):
+    await asyncio.sleep(timeout)
+
+    current_state = await state.get_state()
+    if current_state in {Interaction.amount.state, Interaction.confirmation.state}:
+        await state.clear()
+        await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text="⏰<b> Время ожидания ответа истекло</b>", reply_markup=None)
+
+
 async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None:
     """
     Функция, которая учавствует в цепочке из 2ух функций для взаимодействия с валютами. В ней первично проверяется кол-во нужной суммы у человека
@@ -354,7 +364,9 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         await message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
     
-    await message.answer(text, reply_markup=agree_buttons)
+    await state.set_state(Interaction.confirmation)
+    msg = await message.answer(text, reply_markup=agree_buttons)
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
 
 
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
