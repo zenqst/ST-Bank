@@ -342,3 +342,47 @@ async def test_spam_attempt():
     await stats.save()
     print("\n📊 Итоговая статистика (Spam Attempt):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
+
+@pytest.mark.asyncio
+async def test_best_deal_by_roi():
+    db = DummyDB()
+    stats = StatsManager(user_id=1, db=db)
+    await stats.load()
+
+    # Покупка 10 ST по 100
+    await stats.record_buy("ST", amount=10, price=100)
+    # Продажа 5 ST по 150 → ROI = (150 - 100) / 100 = 50%
+    await stats.record_sell("ST", amount=5, price=150)
+
+    best = stats.stats.get("best_deal")
+    assert best["currency"] == "ST"
+    assert best["amount"] == 5
+    assert best["price"] == 150
+    assert best["roi"] == pytest.approx(50.0)
+
+    # Покупка 4 V по 100
+    await stats.record_buy("V", amount=4, price=100)
+    # Продажа 4 V по 180 → ROI = 80%
+    await stats.record_sell("V", amount=4, price=180)
+
+    best = stats.stats.get("best_deal")
+    assert best["currency"] == "V"
+    assert best["amount"] == 4
+    assert best["price"] == 180
+    assert best["roi"] == pytest.approx(80.0)
+
+    # Покупка 2 USD по 200
+    await stats.record_buy("USD", amount=2, price=200)
+    # Продажа 2 USD по 250 → ROI = 25% (меньше текущего)
+    await stats.record_sell("USD", amount=2, price=250)
+
+    # best_deal не должен измениться
+    best = stats.stats.get("best_deal")
+    assert best["currency"] == "V"
+    assert best["roi"] == pytest.approx(80.0)
+
+    await stats.save()
+
+    print("\n📊 Итоговая статистика (Best Deal):")
+    print(json.dumps(stats.stats, indent=2, ensure_ascii=False))

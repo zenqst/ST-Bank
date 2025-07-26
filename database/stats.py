@@ -18,7 +18,7 @@ class StatsManager:
         self.trades = loads(row['trades'] or "{}")
 
     @staticmethod
-    def _get_today(is_additional: bool = False) -> str:
+    def _get_today(*, is_additional: bool = False) -> str:
         now = datetime.datetime.now(tz=datetime.UTC)
         if is_additional:
             return now.isoformat(timespec='seconds').split('+')[0]
@@ -136,6 +136,19 @@ class StatsManager:
 
         roi = (profit / invested_in_sold) * 100 if invested_in_sold != 0 else 0
         self.stats["roi"][currency] = round(roi, 2)
+
+        current_best = self.stats.get("best_deal", None)
+        deal_info = {
+            "currency": currency,
+            "amount": amount,
+            "price": price,
+            "profit": profit,
+            "roi": round(roi, 2),
+            "date": self._get_today(is_additional=False)
+        }
+        # Если еще нет лучшей сделки или новая прибыль выше текущей
+        if (current_best is None) or (deal_info["roi"] > current_best.get("roi", float("-inf"))):
+            self.stats["best_deal"] = deal_info
 
         await self.update_favorite_currency()
         self.stats["last_active"] = self._get_today(is_additional=True)

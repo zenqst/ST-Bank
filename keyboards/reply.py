@@ -14,7 +14,7 @@ main = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📊 Торговать"),
          KeyboardButton(text="📦 Открыть бокс"),],
-        [KeyboardButton(text="💰 Донаты [WIP]")],
+        # [KeyboardButton(text="💰 Донаты [WIP]")],
         [KeyboardButton(text="📋 Профиль"),]
     ],
     resize_keyboard=True,
