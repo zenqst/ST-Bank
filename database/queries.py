@@ -1011,7 +1011,7 @@ async def show_stats(username: str, user_id: int, call: CallbackQuery) -> None:
         "<i>*ROI (Return on Investment) — доходность инвестиций в процентах</i>"
     )
 
-    await call.message.edit_text(text)
+    await call.message.edit_text(text, reply_markup=items_buttons)
 
 
 async def check_casino_balance(user_id):
