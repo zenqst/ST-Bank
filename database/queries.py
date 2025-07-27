@@ -50,7 +50,15 @@ async def register(user_id: int, username: str) -> UserStatus:
     status = await check_profile(user_id)
 
     if status == UserStatus.NOT_FOUND:
+        stats = StatsManager(user_id)
+        price_st = await get_price("st")
+        price_v = await get_price("v")
+
+        stats.load()
+        stats.record_buy("st", 15, price_st)
+        stats.record_buy("v", 5, price_v)
         await db.insert_data("users", {"id": user_id, "username": username})
+        stats.save()
 
         return UserStatus.SUCCESS
     

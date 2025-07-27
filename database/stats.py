@@ -96,22 +96,14 @@ class StatsManager:
         await self.update_favorite_currency()
         self.stats["last_active"] = self._get_today(is_additional=True)
     
-    async def record_sell(self, currency: str, amount: float, price: float):
+    async def record_lots(self, remaining: float, currency: str, price: float):
         self._init_counters()
         self._init_currency_fields(currency)
 
-        self.stats["sold"][currency] = self.stats["sold"].get(currency, 0) + amount * price
-        self.stats["deal_count"]["total"] += 1
-        self.stats["deal_count"]["sell"] += 1
-
-        if currency not in self.trades:
-            raise ValueError(f"Нет такой валюты в портфеле ({currency})")
-
         lots = self.trades[currency]
+        new_lots = []
         profit = 0.0
         invested_in_sold = 0.0
-        new_lots = []
-        remaining = amount
 
         for lot in lots:
             lot_amount = lot["amount"]
@@ -130,6 +122,22 @@ class StatsManager:
 
         if remaining > 0:
             raise ValueError("Недостаточно валюты для продажи")
+
+        return profit, invested_in_sold, new_lots
+
+
+    async def record_sell(self, currency: str, amount: float, price: float):
+        self._init_counters()
+        self._init_currency_fields(currency)
+
+        self.stats["sold"][currency] = self.stats["sold"].get(currency, 0) + amount * price
+        self.stats["deal_count"]["total"] += 1
+        self.stats["deal_count"]["sell"] += 1
+
+        if currency not in self.trades:
+            raise ValueError(f"Нет такой валюты в портфеле ({currency})")
+
+        profit, invested_in_sold, new_lots = await self.record_lots(amount, currency, price)
 
         self.trades[currency] = new_lots
 
