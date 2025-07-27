@@ -3,7 +3,7 @@ import logging
 import math
 import random as rn
 import secrets
-from json import dumps, loads
+from json import dumps, loads, JSONDecodeError
 from typing import Any
 
 import prettytable as pt
@@ -803,8 +803,6 @@ async def build_rarity_section(
 
 
 async def show_items(user_id: int, call: CallbackQuery):
-    import json
-
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     res = await db.select_data("users", ["items"], {"id": user_id})
 
@@ -813,13 +811,10 @@ async def show_items(user_id: int, call: CallbackQuery):
     user_loot = []
     if raw_items:
         try:
-            temp = json.loads(raw_items)
-            if isinstance(temp, str):
-                user_loot = json.loads(temp)
-            else:
-                user_loot = temp
-        except Exception as e:
-            print("Ошибка JSON-декодирования:", e)
+            temp = loads(raw_items)
+            user_loot = loads(temp) if isinstance(temp, str) else temp
+        except JSONDecodeError:
+            logger.exception("Ошибка JSON-декодирования:")
             user_loot = []
 
     user_items_dict = {}
