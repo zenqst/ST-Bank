@@ -3,7 +3,7 @@ import logging
 import math
 import random as rn
 import secrets
-from json import dumps, loads
+from json import dumps, loads, JSONDecodeError
 from typing import Any
 
 import prettytable as pt
@@ -54,11 +54,11 @@ async def register(user_id: int, username: str) -> UserStatus:
         price_st = await get_price("st")
         price_v = await get_price("v")
 
-        stats.load()
-        stats.record_buy("st", 15, price_st)
-        stats.record_buy("v", 5, price_v)
+        await stats.load()
+        await stats.record_buy("st", 15, price_st)
+        await stats.record_buy("v", 5, price_v)
         await db.insert_data("users", {"id": user_id, "username": username})
-        stats.save()
+        await stats.save()
 
         return UserStatus.SUCCESS
     
@@ -386,7 +386,7 @@ async def timeout_checker(bot: Bot, chat_id: int, message_id: int, state: FSMCon
             )
         except TelegramBadRequest as e:
             if "message to edit not found" in str(e).lower():
-                logger.debug(f"Message {message_id} not found for timeout edit in chat {chat_id}")
+                logger.debug("Message %s not found for timeout edit in chat %s", message_id, chat_id)
             else:
                 raise
         except Exception:
@@ -806,10 +806,21 @@ async def show_items(user_id: int, call: CallbackQuery):
     all_items = await db.select_data("items", ["id", "name", "rarity"], fetch_all=True)
     res = await db.select_data("users", ["items"], {"id": user_id})
 
-    user_loot = loads(res['items']) if res and res['items'] else []
+    raw_items = res['items'] if res and res['items'] else None
+
+    user_loot = []
+    if raw_items:
+        try:
+            temp = loads(raw_items)
+            user_loot = loads(temp) if isinstance(temp, str) else temp
+        except JSONDecodeError:
+            logger.exception("Ошибка JSON-декодирования:")
+            user_loot = []
 
     user_items_dict = {}
     for user_item in user_loot:
+        if not isinstance(user_item, dict):
+            continue
         user_items_dict[user_item['id']] = user_items_dict.get(user_item['id'], 0) + user_item.get('count', 0)
 
     text = ""
@@ -819,8 +830,6 @@ async def show_items(user_id: int, call: CallbackQuery):
 
     if isinstance(call.message, Message):
         return await call.message.edit_text(text, reply_markup=items_buttons)
-    else:
-        return
 
 
 async def change_all_coins(bot: Bot):
