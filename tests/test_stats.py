@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -25,7 +25,7 @@ class DummyDB:
 @pytest.mark.asyncio
 async def test_buy_and_sell_flow():
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -54,7 +54,7 @@ async def test_buy_and_sell_flow():
 async def test_multiple_buys_same_coin():
     """Тест множественных покупок одной монеты"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -82,7 +82,7 @@ async def test_multiple_buys_same_coin():
 async def test_sell_exact_amount():
     """Тест продажи точно того количества, что есть"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -110,7 +110,7 @@ async def test_sell_exact_amount():
 async def test_multiple_coins():
     """Тест работы с несколькими разными монетами"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -145,7 +145,7 @@ async def test_multiple_coins():
 async def test_initial_state():
     """Тест начального состояния после загрузки"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -162,7 +162,7 @@ async def test_initial_state():
 async def test_negative_roi():
     """Тест отрицательной рентабельности"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -185,7 +185,7 @@ async def test_negative_roi():
 async def test_multi_day_trading():
     """Тест торговли в течение нескольких дней"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -215,7 +215,6 @@ async def test_multi_day_trading():
     assert "2024-01-01" not in stats.stats["profit_by_day"]
     assert "2024-01-02" not in stats.stats["profit_by_day"]
 
-    
     # ROI для ST после продажи
     assert stats.stats["roi"]["ST"] == pytest.approx(50.0)  # (750-500)/500*100
     
@@ -228,41 +227,41 @@ async def test_multi_day_trading():
 async def test_weekly_summary():
     """Тест еженедельной сводки"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
     # Эмуляция торговли в течение недели
-    base_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     
     # Понедельник: покупка
     with patch('database.stats.datetime') as mock_date:
         mock_date.datetime.now.return_value = base_date
-        mock_date.timezone.utc = timezone.utc
+        mock_date.timezone.utc = UTC
         await stats.record_buy("ST", amount=10, price=100)  # Инвестиция 1000
     
     # Вторник: покупка
     with patch('database.stats.datetime') as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=1)
-        mock_date.timezone.utc = timezone.utc
+        mock_date.timezone.utc = UTC
         await stats.record_buy("V", amount=5, price=200)   # Инвестиция 1000
     
     # Среда: продажа с прибылью
     with patch('database.stats.datetime') as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=2)
-        mock_date.timezone.utc = timezone.utc
+        mock_date.timezone.utc = UTC
         await stats.record_sell("ST", amount=5, price=150)  # Прибыль 250
     
     # Четверг: продажа с убытком
     with patch('database.stats.datetime') as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=3)
-        mock_date.timezone.utc = timezone.utc
+        mock_date.timezone.utc = UTC
         await stats.record_sell("V", amount=2, price=150)  # Убыток -100
     
     # Пятница: еще покупка
     with patch('database.stats.datetime') as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=4)
-        mock_date.timezone.utc = timezone.utc
+        mock_date.timezone.utc = UTC
         await stats.record_buy("ST", amount=5, price=120)  # Инвестиция 600
     
     # Проверки
@@ -275,22 +274,23 @@ async def test_weekly_summary():
     
     # Проверка прибыли по дням
     assert stats.stats["profit_by_day"]["2024-01-03"] == 250  # Среда
-    assert stats.stats["profit_by_day"]["2024-01-04"] == -100 # Четверг
+    assert stats.stats["profit_by_day"]["2024-01-04"] == -100  # Четверг
     
     await stats.save()
     print("\n📊 Итоговая статистика (Weekly Summary):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
 
+
 @pytest.mark.asyncio
 async def test_monthly_performance():
     """Тест месячной производительности"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
     # Эмуляция торговли в течение месяца
-    start_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    start_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     
     # Разные дни месяца
     activities = [
@@ -305,7 +305,7 @@ async def test_monthly_performance():
     for day_offset, action, currency, amount, price in activities:
         with patch('database.stats.datetime') as mock_date:
             mock_date.datetime.now.return_value = start_date + timedelta(days=day_offset)
-            mock_date.timezone.utc = timezone.utc
+            mock_date.timezone.utc = UTC
             
             if action == "buy":
                 await stats.record_buy(currency, amount, price)
@@ -330,7 +330,7 @@ async def test_monthly_performance():
 async def test_spam_attempt():
     """Тест добавления попыток спама"""
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
 
     await stats.load()
     
@@ -347,7 +347,7 @@ async def test_spam_attempt():
 @pytest.mark.asyncio
 async def test_best_deal_by_roi():
     db = DummyDB()
-    stats = StatsManager(user_id=1, db=db)
+    stats = StatsManager(user_id=1)
     await stats.load()
 
     # Покупка 10 ST по 100

@@ -1,13 +1,26 @@
 import datetime
 from json import dumps, loads
 
+from database.core import db
+
 
 class StatsManager:
-    def __init__(self, user_id: int, db):
+    """
+    Класс для работы со статистикой.
+    При инициализации использовать stats.load()
+    После всех операций использовать stats.save()
+    """
+    def __init__(self, user_id: int):
         self.user_id = user_id
         self.db = db
         self.stats = {}
         self.trades = {}
+
+    def __getitem__(self, key):
+        return self.stats[key]
+
+    def __setitem__(self, key, value):
+        self.stats[key] = value
 
     async def load(self):
         """Загружает статистику из БД"""
@@ -26,15 +39,19 @@ class StatsManager:
             return now.date().isoformat()
 
     def _init_currency_fields(self, currency: str):
-        for key in ["invested", "sold", "average_buy_price", "average_sell_price", "roi"]:
-            self.stats.setdefault(key, {})
-            self.stats[key].setdefault(currency, 0)
-        self.stats.setdefault("current_portfolio", {})
-        self.stats["current_portfolio"].setdefault(currency, {"amount": 0, "avg_price": 0})
+        keys = ["invested", "sold", "average_buy_price", "average_sell_price", "roi", "profit"]
+        for key in keys:
+            self.stats.setdefault(key, {})[currency] = self.stats.setdefault(key, {}).get(currency, 0)
+
+        self.stats.setdefault("profit", {})["total"] = self.stats.setdefault("profit", {}).get("total", 0)
+
+        self.stats.setdefault("current_portfolio", {})[currency] = self.stats.setdefault("current_portfolio", {}).get(currency, {
+            "amount": 0,
+            "avg_price": 0
+        })
 
     def _init_counters(self):
         self.stats.setdefault("deal_count", {"total": 0, "buy": 0, "sell": 0})
-        self.stats.setdefault("profit_total", 0)
         self.stats.setdefault("spam_attempts", 0)
         self.stats.setdefault("profit_by_day", {})
         self.stats.setdefault("favorite_currency", None)
@@ -88,7 +105,7 @@ class StatsManager:
         self.stats["deal_count"]["sell"] += 1
 
         if currency not in self.trades:
-            raise ValueError("Нет такой валюты в портфеле")
+            raise ValueError(f"Нет такой валюты в портфеле ({currency})")
 
         lots = self.trades[currency]
         profit = 0.0
@@ -128,7 +145,8 @@ class StatsManager:
 
         self.stats["average_sell_price"][currency] = round(price, 2)
 
-        self.stats["profit_total"] += profit
+        self.stats["profit"][currency] += profit
+        self.stats["profit"]["total"] += profit
 
         today = self._get_today(is_additional=False)
         self.stats["profit_by_day"].setdefault(today, 0)
@@ -152,6 +170,8 @@ class StatsManager:
 
         await self.update_favorite_currency()
         self.stats["last_active"] = self._get_today(is_additional=True)
+
+        return profit
 
     async def add_spam_attempt(self):
         self._init_counters()

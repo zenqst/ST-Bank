@@ -17,6 +17,7 @@ from millify import millify
 
 from config_reader import Coin, config, st, v
 from database.core import db
+from database.stats import StatsManager
 from keyboards.builders import create_box_button
 from keyboards.inline import (
     ActionCallback,
@@ -481,10 +482,9 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     user_data = await get_profile(user_id)
     last_price: float = price_data['cost'] * amount
 
-    row = await db.select_data("users", "trades", {"id": user_id})
-    trades_json = row['trades'] or "{}"
-    trades = loads(trades_json)
     profit = None
+    stats = StatsManager(user_id)
+    await stats.load()
 
     if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
@@ -508,12 +508,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         balance_currency = user_data[currency] + amount
         action_word = "покупка"
 
-        new_trade = {"amount": amount, "price": price_data['cost']}
-
-        if currency not in trades:
-            trades[currency] = []
-
-        trades[currency].append(new_trade)
+        await stats.record_buy(currency, amount, price_data['cost'])
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
             currency_info: CurrencyInfo = {
@@ -536,34 +531,7 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         balance_currency = user_data[currency] - amount
         action_word = "продажа"
 
-        if currency not in trades:
-            raise ValueError("Нет такой валюты в портфеле")
-        
-        lots = trades[currency]
-        profit = 0.0
-        new_lots = []
-        remaining = amount
-
-        for lot in lots:
-            if remaining <= 0:
-                new_lots.append(lot)
-                continue
-
-            lot_amount = lot["amount"]
-            lot_price = lot["price"]
-
-            if lot_amount <= remaining:
-                profit += lot_amount * (price_data['cost'] - lot_price)
-                remaining -= lot_amount
-            else:
-                profit += remaining * (price_data['cost'] - lot_price)
-                lot["amount"] -= remaining
-                new_lots.append(lot)
-                remaining = 0
-
-        if remaining > 0:
-            raise ValueError("Недостаточно валюты для продажи")
-        trades[currency] = new_lots
+        profit = await stats.record_sell(currency, amount, price_data['cost'])
     else:
         await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
@@ -584,9 +552,11 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
     await db.update_data(
         "users",
-        {"rubles": balance_rubles, currency: balance_currency, "trades": dumps(trades)},
+        {"rubles": balance_rubles, currency: balance_currency},
         {"id": user_id},
     )
+
+    await stats.save()
     await state.clear()
     await call.message.answer(text)
 
@@ -754,7 +724,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
             Currencies.BOX,
             balance=None,
             currency_info=currency_info,
-            action_word=None
+            action_word=None,
+            profit=None
         )
         
         await call.message.answer(text)
@@ -992,6 +963,55 @@ async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
         logger.exception("Не удалось отправить отчёт админу: %s")
 
     await state.clear()
+
+
+async def format_currency(val: float) -> str:
+    return f"{val:,.2f}".replace(",", " ")
+
+
+async def show_stats(username: str, user_id: int, call: CallbackQuery) -> None:
+    stats = StatsManager(user_id)
+    await stats.load()
+
+    deal_count = stats.stats.get('deal_count', {})
+    invested = stats.stats.get('invested', {})
+    sold = stats.stats.get('sold', {})
+    profit = stats.stats.get('profit', {})
+    roi = stats.stats.get('roi', {})
+    best_deal = stats.stats.get('best_deal', {})
+        
+    text = (
+        f"📊<b>Статистика пользователя @{username}</b> (<i>{user_id}</i>)\n\n"
+        "🏛 <u>Операции:</u>\n"
+        f"• Покупка: {deal_count.get('buy', 0)}\n"
+        f"• Продажа: {deal_count.get('sell', 0)}\n"
+        f"• Общее: {deal_count.get('total', 0)}\n\n"
+        "💸 <u>Инвестировано:</u>\n"
+        f"• ST: {await format_currency(invested.get('st', 0))} RUB\n"
+        f"• V: {await format_currency(invested.get('v', 0))} RUB\n\n"
+        "💰 <u>Продано:</u>\n"
+        f"• ST: {await format_currency(sold.get('st', 0))} RUB\n"
+        f"• V: {await format_currency(sold.get('v', 0))} RUB\n\n"
+        "📈 <u>Прибыль:</u>\n"
+        f"• ST: {await format_currency(profit.get('st', 0))} RUB\n"
+        f"• V: {await format_currency(profit.get('v', 0))} RUB\n"
+        f"• Общая: {await format_currency(profit.get('total', 0))} RUB\n\n"
+        "📊 <u>ROI*:</u>\n"
+        f"• ST: {roi.get('st', 0)}%\n"
+        f"• V: {roi.get('v', 0)}%\n\n"
+    )
+
+    if stats.stats.get('favorite_currency'):
+        text += f"⭐️ <u>Любимая валюта:</u> {stats.stats.get('favorite_currency', '').upper()}\n"
+    if best_deal:
+        text += f"🏆 <u>Лучшая сделка:</u> {best_deal.get('currency', '').upper()} <i>({best_deal.get('roi', 0)}% ROI*)</i>\n"
+
+    text += (
+        f"😡 <u>Попытки спама:</u> {stats.stats.get('spam_attempts', 0)}\n\n"
+        "<i>*ROI (Return on Investment) — доходность инвестиций в процентах</i>"
+    )
+
+    await call.message.edit_text(text)
 
 
 async def check_casino_balance(user_id):

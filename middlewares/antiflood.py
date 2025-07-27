@@ -6,6 +6,8 @@ from aiogram.dispatcher.flags import get_flag
 from aiogram.types import TelegramObject
 from cachetools import TTLCache
 
+from database.stats import StatsManager
+
 
 class AntifloodMiddleware(BaseMiddleware):
     cache: TTLCache[str, bool]
@@ -33,11 +35,17 @@ class AntifloodMiddleware(BaseMiddleware):
 
         key = f"{throttling_key}:{user_id}"
 
+
         if key in self.cache:
             if user_id not in self.warned_users:
                 self.warned_users[user_id] = True
                 if hasattr(event, "answer"):
                     await event.answer("😣 <b>Немного передохните, я уже устал...</b>\n\n<i>Сообщения принимаются с небольшим к/д</i>")
+            
+            stats = StatsManager(user_id)
+            await stats.load()
+            await stats.add_spam_attempt()
+            await stats.save()
             return
         else:
             self.cache[key] = True
