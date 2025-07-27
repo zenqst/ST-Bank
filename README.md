@@ -92,14 +92,17 @@ ST-Bank/
 ├── pyproject.toml
 ├── callbacks/
 │   ├── common.py
+│   ├── returns.py
 │   └── trade.py
 ├── database/
 │   ├── core.py
-│   └── queries.py
+│   ├── queries.py
+│   └── stats.py
 ├── handlers/
 │   ├── commands.py
 │   └── messages.py
 ├── keyboards/
+│   ├── builders.py
 │   ├── inline.py
 │   └── reply.py
 ├── middlewares/
@@ -109,6 +112,8 @@ ST-Bank/
 │   ├── enums.py
 │   ├── types.py
 │   └── fsm_states.py
+├── tests/
+│   └── test_stats.py
 └── utils/
 ```
 

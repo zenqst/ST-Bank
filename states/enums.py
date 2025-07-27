@@ -25,3 +25,9 @@ class Currencies(Enum):
     V = 'v'
     BOX = 'box'
     RUB = 'rub'
+
+
+class Steps(Enum):
+    PROFILE = 'profile'
+    ACTIONS = 'actions'
+    CURRENCIES = 'currencies'

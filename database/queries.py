@@ -8,7 +8,7 @@ from typing import Any
 
 import prettytable as pt
 from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from asyncpg.exceptions import PostgresError
@@ -17,10 +17,22 @@ from millify import millify
 
 from config_reader import Coin, config, st, v
 from database.core import db
+from database.stats import StatsManager
 from keyboards.builders import create_box_button
-from keyboards.inline import agree_buttons, items_buttons, profile_buttons
+from keyboards.inline import (
+    ActionCallback,
+    CurrencyCallback,
+    ReturnCallback,
+    action_buttons,
+    agree_buttons,
+    choose_currency_buttons,
+    items_buttons,
+    profile_buttons,
+    update_buttons,
+)
 from keyboards.reply import main
 from states.enums import CoinActions, Currencies, UserStatus
+from states.fsm_states import Interaction
 from states.types import CurrencyInfo, CurrencyKey, ProfileData, TableProfile
 
 load_dotenv()
@@ -38,7 +50,15 @@ async def register(user_id: int, username: str) -> UserStatus:
     status = await check_profile(user_id)
 
     if status == UserStatus.NOT_FOUND:
+        stats = StatsManager(user_id)
+        price_st = await get_price("st")
+        price_v = await get_price("v")
+
+        stats.load()
+        stats.record_buy("st", 15, price_st)
+        stats.record_buy("v", 5, price_v)
         await db.insert_data("users", {"id": user_id, "username": username})
+        stats.save()
 
         return UserStatus.SUCCESS
     
@@ -91,7 +111,7 @@ async def diff_convert(diff: float) -> str:
     return text
 
 
-async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None) -> str:
+async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None, profit: float | None) -> str:
     """
     Функция, которая преобразует данные в строку с уведомлением об успешной покупке или же недостатке средств
 
@@ -122,6 +142,8 @@ async def create_action_msg(currency: Currencies, *, balance: float | None, curr
                 f"<b>Баланс {currency_str}:</b> {round(currency_info['balance'], 2)}\n"
                 f"<b>Цена за единицу:</b> {currency_info['cost']} RUB\n"
             )
+            if profit:
+                text += f"<b>Прибыль:</b> {round(profit, 2)} RUB\n"
     else:
         text = (
             "<b>❌ Неизвестная ошибка!</b>\n\n"
@@ -150,6 +172,72 @@ async def get_price(name: str, is_round: bool = True) -> dict:
 
     return new_data
     
+
+async def send_prices_msg(message: Message | CallbackQuery) -> None:
+    """
+    Функция, которая отправляет текущие цены
+
+    :param message: Message or CallbackQuery
+    :return: None
+    """
+    st_price = await get_price("st")
+    v_price = await get_price("v")
+
+    text = (
+        "<b>Текущие цены:</b>\n"
+        f"1 ST = {st_price['cost']} RUB <i>({st_price['diff']})</i>\n"
+        f"1 V = {v_price['cost']} RUB <i>({v_price['diff']})</i>"
+    )
+
+    if isinstance(message, Message):
+        await message.answer(text, reply_markup=action_buttons)
+    elif isinstance(message, CallbackQuery):
+        if message.message is not None and isinstance(message.message, Message):
+            await message.message.edit_text(text, reply_markup=action_buttons)
+            await message.answer()
+        else:
+            await message.answer(text, reply_markup=action_buttons)
+
+
+async def edit_currencies_handler(state: FSMContext, callback_data: ActionCallback | ReturnCallback, bot: Bot, call: CallbackQuery) -> None:
+    await state.set_state(Interaction.type)  # приводим в активность type из interaction
+
+    if isinstance(callback_data, ActionCallback):
+        await state.update_data(type=callback_data.action_type)
+
+    await bot.answer_callback_query(call.id)
+
+    text = (
+        "Выберите валюту для взаимодействия\n\n"
+        "<b>Краткая сводка:</b>\n"
+        "<b>ST</b> — валюта для начинающих, является более стабильной. Помогает новичкам обрести свой первый капитал.\n"
+        "<b>V</b> — валюта, которая уже является более реалистичной. В ней цена может в любой момент обвалиться почти в 0, а может, и вырасти на тысячи рублей."
+    )
+
+    await call.message.edit_text(text, reply_markup=choose_currency_buttons)
+
+
+async def edit_amount_handler(state: FSMContext, callback_data: CurrencyCallback, bot: Bot, call: CallbackQuery) -> None:
+    user_id = call.from_user.id
+
+    interaction_data = await state.get_data()
+    await state.set_state(Interaction.currency)
+    await bot.answer_callback_query(call.id)
+
+    currency = callback_data.currency
+    await state.update_data(currency=currency)
+
+    text = await build_amount_prompt(user_id, interaction_data['type'], currency)
+
+    msg = await call.message.edit_text(text, reply_markup=update_buttons)
+
+    await state.set_state(Interaction.msg_id)
+    await state.update_data(msg_id=msg.message_id)
+
+    await state.set_state(Interaction.amount)
+
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
+
 
 async def change_trend_score(name: str, score: float) -> None:
     data = await get_price(name)
@@ -282,6 +370,29 @@ async def build_amount_prompt(user_id: int, action: CoinActions, currency: Curre
     return text
 
 
+async def timeout_checker(bot: Bot, chat_id: int, message_id: int, state: FSMContext, timeout: int):
+    await asyncio.sleep(timeout)
+
+    current_state = await state.get_state()
+
+    if current_state in {Interaction.amount.state, Interaction.confirmation.state}:
+        await state.clear()
+        try:
+            await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text="⏰<b> Время ожидания ответа истекло</b>",
+                reply_markup=None
+            )
+        except TelegramBadRequest as e:
+            if "message to edit not found" in str(e).lower():
+                logger.debug(f"Message {message_id} not found for timeout edit in chat {chat_id}")
+            else:
+                raise
+        except Exception:
+            logger.exception("Unexpected error in timeout_checker")
+
+
 async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None:
     """
     Функция, которая учавствует в цепочке из 2ух функций для взаимодействия с валютами. В ней первично проверяется кол-во нужной суммы у человека
@@ -308,10 +419,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
 
     await bot.delete_message(chat_id=message.chat.id, message_id=data['msg_id'])
 
-    if amount <= 0:
-        await message.answer('<b>❌ Число должно быть больше 0</b>')
-        return
-    elif data['type'] == CoinActions.BUY:
+    if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
             currency_info: CurrencyInfo = {
                 'balance': user_data['rubles'],
@@ -323,7 +431,8 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
                 Currencies.RUB,
                 balance=None,
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await message.answer(text)
@@ -343,7 +452,8 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
                 Currencies(currency),
                 balance=user_data['rubles'],
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await message.answer(text)
@@ -354,7 +464,9 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         await message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
     
-    await message.answer(text, reply_markup=agree_buttons)
+    await state.set_state(Interaction.confirmation)
+    msg = await message.answer(text, reply_markup=agree_buttons)
+    asyncio.create_task(timeout_checker(bot, msg.chat.id, msg.message_id, state, timeout=120))
 
 
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
@@ -378,9 +490,9 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
     user_data = await get_profile(user_id)
     last_price: float = price_data['cost'] * amount
 
-    if amount <= 0:
-        await call.message.answer('<b>❌ Число должно быть больше 0</b>')
-        return
+    profit = None
+    stats = StatsManager(user_id)
+    await stats.load()
 
     if data['type'] == CoinActions.BUY:
         if last_price > user_data['rubles']:
@@ -394,7 +506,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
                 Currencies.RUB,
                 balance=None,
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await call.message.answer(text)
@@ -402,6 +515,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         balance_rubles = user_data['rubles'] - last_price
         balance_currency = user_data[currency] + amount
         action_word = "покупка"
+
+        await stats.record_buy(currency, amount, price_data['cost'])
     elif data['type'] == CoinActions.SELL:
         if amount > user_data[currency]:
             currency_info: CurrencyInfo = {
@@ -414,7 +529,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
                 Currencies(currency),
                 balance=user_data['rubles'],
                 currency_info=currency_info,
-                action_word=None
+                action_word=None,
+                profit=None
             )
 
             await call.message.answer(text)
@@ -422,6 +538,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         balance_rubles = user_data['rubles'] + last_price
         balance_currency = user_data[currency] - amount
         action_word = "продажа"
+
+        profit = await stats.record_sell(currency, amount, price_data['cost'])
     else:
         await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
         return
@@ -436,7 +554,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         Currencies(currency),
         balance=balance_rubles,
         currency_info=currency_info,
-        action_word=action_word
+        action_word=action_word,
+        profit=profit
     )
 
     await db.update_data(
@@ -444,6 +563,8 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         {"rubles": balance_rubles, currency: balance_currency},
         {"id": user_id},
     )
+
+    await stats.save()
     await state.clear()
     await call.message.answer(text)
 
@@ -611,7 +732,8 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
             Currencies.BOX,
             balance=None,
             currency_info=currency_info,
-            action_word=None
+            action_word=None,
+            profit=None
         )
         
         await call.message.answer(text)
@@ -628,7 +750,7 @@ async def open_box(user_id: int, call: CallbackQuery, *, amount: int = 1, is_fre
 
     result_message = await create_result_message(obtained_items, amount, ruble_balance, boxes_balance)
 
-    inline_kb = await create_box_button(amount)
+    inline_kb = await create_box_button(amount=amount, box_balance=boxes_balance['left'])
     await call.message.answer(result_message, reply_markup=inline_kb)
 
 
@@ -666,12 +788,12 @@ async def build_rarity_section(
     item_count = len(available_items)
 
     if not user_items_dict:
-        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
+        return section_text + f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>"
 
     count_with_user = sum(1 for item in available_items if user_items_dict.get(item['id'], 0) > 0)
 
     if count_with_user == 0:
-        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>\n\n"
+        section_text += f"0 из {item_count}\n<i>Не открыто ни одного предмета редкости</i>"
     else:
         section_text += f"<b>{count_with_user}</b> из {item_count}\n"
         section_text += _generate_user_items_text(available_items, user_items_dict)
@@ -849,6 +971,55 @@ async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
         logger.exception("Не удалось отправить отчёт админу: %s")
 
     await state.clear()
+
+
+async def format_currency(val: float) -> str:
+    return f"{val:,.2f}".replace(",", " ")
+
+
+async def show_stats(username: str, user_id: int, call: CallbackQuery) -> None:
+    stats = StatsManager(user_id)
+    await stats.load()
+
+    deal_count = stats.stats.get('deal_count', {})
+    invested = stats.stats.get('invested', {})
+    sold = stats.stats.get('sold', {})
+    profit = stats.stats.get('profit', {})
+    roi = stats.stats.get('roi', {})
+    best_deal = stats.stats.get('best_deal', {})
+        
+    text = (
+        f"📊<b>Статистика пользователя @{username}</b> (<i>{user_id}</i>)\n\n"
+        "🏛 <u>Операции:</u>\n"
+        f"• Покупка: {deal_count.get('buy', 0)}\n"
+        f"• Продажа: {deal_count.get('sell', 0)}\n"
+        f"• Общее: {deal_count.get('total', 0)}\n\n"
+        "💸 <u>Инвестировано:</u>\n"
+        f"• ST: {await format_currency(invested.get('st', 0))} RUB\n"
+        f"• V: {await format_currency(invested.get('v', 0))} RUB\n\n"
+        "💰 <u>Продано:</u>\n"
+        f"• ST: {await format_currency(sold.get('st', 0))} RUB\n"
+        f"• V: {await format_currency(sold.get('v', 0))} RUB\n\n"
+        "📈 <u>Прибыль:</u>\n"
+        f"• ST: {await format_currency(profit.get('st', 0))} RUB\n"
+        f"• V: {await format_currency(profit.get('v', 0))} RUB\n"
+        f"• Общая: {await format_currency(profit.get('total', 0))} RUB\n\n"
+        "📊 <u>ROI*:</u>\n"
+        f"• ST: {roi.get('st', 0)}%\n"
+        f"• V: {roi.get('v', 0)}%\n\n"
+    )
+
+    if stats.stats.get('favorite_currency'):
+        text += f"⭐️ <u>Любимая валюта:</u> {stats.stats.get('favorite_currency', '').upper()}\n"
+    if best_deal:
+        text += f"🏆 <u>Лучшая сделка:</u> {best_deal.get('currency', '').upper()} <i>({best_deal.get('roi', 0)}% ROI*)</i>\n"
+
+    text += (
+        f"😡 <u>Попытки спама:</u> {stats.stats.get('spam_attempts', 0)}\n\n"
+        "<i>*ROI (Return on Investment) — доходность инвестиций в процентах</i>"
+    )
+
+    await call.message.edit_text(text, reply_markup=items_buttons)
 
 
 async def check_casino_balance(user_id):

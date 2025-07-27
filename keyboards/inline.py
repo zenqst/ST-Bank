@@ -1,7 +1,7 @@
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from states.enums import CoinActions, Currencies
+from states.enums import CoinActions, Currencies, Steps
 
 
 class ActionCallback(CallbackData, prefix="type"):
@@ -17,14 +17,33 @@ class BoxCallback(CallbackData, prefix="box"):
     amount: None | int
 
 
+class ReturnCallback(CallbackData, prefix="return"):
+    prev_step: Steps
+
+
 profile_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
+            InlineKeyboardButton(text="📊 Статистика аккаунта", callback_data='stats'),
             InlineKeyboardButton(text="📜 Список предметов", callback_data='items')
+        ],
+        [
+            InlineKeyboardButton(text="💸 Стать банкротом", callback_data="bankrupt")
         ],
         [
             InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenqst")
         ]
+    ]
+)
+
+bankrupt_buttons = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💔 Обанкротиться", callback_data='bankrupt_agree')
+        ],
+        [
+            InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
+        ],
     ]
 )
 
@@ -47,6 +66,9 @@ choose_currency_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text="V", callback_data=CurrencyCallback(currency=Currencies.V).pack())
         ],
         [
+            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.ACTIONS).pack())
+        ],
+        [
             InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
         ],
     ]
@@ -56,6 +78,9 @@ update_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
             InlineKeyboardButton(text="🔄 Получить текущую цену", callback_data="update")
+        ],
+        [
+            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.CURRENCIES).pack())
         ],
         [
             InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
@@ -74,26 +99,18 @@ agree_buttons = InlineKeyboardMarkup(
     ]
 )
 
-box_buttons = InlineKeyboardMarkup(
+items_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="Открыть x1", callback_data=BoxCallback(type=CoinActions.OPEN, amount=1).pack()),
-            InlineKeyboardButton(text="Открыть x3", callback_data=BoxCallback(type=CoinActions.OPEN, amount=3).pack()),
-            InlineKeyboardButton(text="Открыть x10", callback_data=BoxCallback(type=CoinActions.OPEN, amount=10).pack()),
-        ],
-        [
-            InlineKeyboardButton(text="➕ Купить", callback_data=BoxCallback(type=CoinActions.BUY, amount=None).pack()),
-        ],
-        [
-            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel"),
+            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.PROFILE).pack())
         ],
     ]
 )
 
-items_buttons = InlineKeyboardMarkup(
+cancel_button = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="⬅️ Вернуться", callback_data='return_profile')
+            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
         ],
     ]
 )
