@@ -99,3 +99,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 pythonpath = "."
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
