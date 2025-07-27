@@ -54,10 +54,10 @@ async def register(user_id: int, username: str) -> UserStatus:
         price_st = await get_price("st")
         price_v = await get_price("v")
 
-        await stats.load()
-        await stats.record_buy("st", 15, price_st)
-        await stats.record_buy("v", 5, price_v)
         await db.insert_data("users", {"id": user_id, "username": username})
+        await stats.load()
+        await stats.record_buy("st", 15, price_st['cost'])
+        await stats.record_buy("v", 5, price_v['cost'])
         await stats.save()
 
         return UserStatus.SUCCESS
