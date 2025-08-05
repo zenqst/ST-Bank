@@ -21,6 +21,10 @@ class ReturnCallback(CallbackData, prefix="return"):
     prev_step: Steps
 
 
+class AdminCallback(CallbackData, prefix="adm"):
+    action: str
+
+
 profile_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
@@ -112,5 +116,27 @@ cancel_button = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
         ],
+    ]
+)
+
+admin_buttons = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="👨‍👩‍👦‍👦 Получить список всех юзеров", callback_data=AdminCallback(action="get_all_users").pack()),
+            InlineKeyboardButton(text="👤 Получить профиль юзера", callback_data=AdminCallback(action="get_user").pack())
+        ],
+        [
+            InlineKeyboardButton(text="💸 Измененить цену валюты", callback_data=AdminCallback(action="change_coin").pack())
+        ],
+        [
+            InlineKeyboardButton(text="📨 Сделать рассылку", callback_data=AdminCallback(action="start_mailing").pack())
+        ],
+        [
+            InlineKeyboardButton(text="📜 Получить логи", callback_data=AdminCallback(action="get_logs").pack())
+        ],
+        [
+            InlineKeyboardButton(text="🔄 Перезапустить бота", callback_data=AdminCallback(action="restart_bot").pack()),
+            InlineKeyboardButton(text="🔴 Выключить бота", callback_data=AdminCallback(action="stop_bot").pack())
+        ]
     ]
 )

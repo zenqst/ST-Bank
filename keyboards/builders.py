@@ -1,8 +1,10 @@
-from aiogram.types import InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from keyboards.inline import BoxCallback
 from states.enums import CoinActions
+
+from config_reader import config
 
 
 async def create_box_button(*, amount: int | None, box_balance: int) -> InlineKeyboardMarkup | None:
@@ -37,3 +39,31 @@ async def create_box_button(*, amount: int | None, box_balance: int) -> InlineKe
         builder.adjust(1)
 
     return builder.as_markup()
+
+# main = ReplyKeyboardMarkup(
+#     keyboard=[
+#         [KeyboardButton(text="📊 Торговать"),
+#          KeyboardButton(text="📦 Открыть бокс"),],
+#         # [KeyboardButton(text="💰 Донаты [WIP]")],
+#         [KeyboardButton(text="📋 Профиль"),]
+#     ],
+#     resize_keyboard=True,
+#     one_time_keyboard=False,
+#     input_field_placeholder="Выберите действие из меню",
+#     selective=True
+# )
+
+
+async def create_main_buttons(user_id: int) -> ReplyKeyboardMarkup:
+    builder = ReplyKeyboardBuilder()
+    
+    builder.button(text="📊 Торговать")
+    builder.button(text="📦 Открыть бокс")
+    builder.button(text="📋 Профиль")
+    builder.adjust(2, 1)
+    
+    if user_id in config.admin_ids:
+        builder.button(text="🎛 Админ-панель")
+        builder.adjust(2, 1, 1)
+
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=False, input_field_placeholder="Выберите действие из меню", selective=True)

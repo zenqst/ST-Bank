@@ -18,7 +18,7 @@ from millify import millify
 from config_reader import Coin, config, st, v
 from database.core import db
 from database.stats import StatsManager
-from keyboards.builders import create_box_button
+from keyboards.builders import create_box_button, create_main_buttons
 from keyboards.inline import (
     ActionCallback,
     CurrencyCallback,
@@ -30,7 +30,6 @@ from keyboards.inline import (
     profile_buttons,
     update_buttons,
 )
-from keyboards.reply import main
 from states.enums import CoinActions, Currencies, UserStatus
 from states.fsm_states import Interaction
 from states.types import CurrencyInfo, CurrencyKey, ProfileData, TableProfile
@@ -248,6 +247,10 @@ async def change_trend_score(name: str, score: float) -> None:
     await db.update_data("coins", {"trend_score": new_score}, {"name": name})
 
 
+async def send_for_admins(text: str, bot: Bot) -> None: 
+    for adm_id in config.admin_ids:
+        await send_single_message(bot, adm_id, text)
+
 async def secure_uniform(a: float, b: float) -> float:
     """Безопасный аналог random.uniform для float."""
     # secrets.randbelow работает только с int, поэтому имитируем float:
@@ -281,29 +284,24 @@ async def change_coin(name: str, bot: Bot) -> None:
 
     roll = secrets.randbelow(100) + 1  # 1–100 включительно
 
-    if roll <= chance:
-        random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
-        await bot.send_message(
-            config.admin_id,
-            f"<b>Валюта {name} резко изменила цену из-за trend points ({trend_score})</b>",
-            reply_markup=main
-        )
-        await change_trend_score(name, 0)
-    elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
-        random_percent = round(await secure_uniform(min_growth, max_growth), 4)
-        await change_trend_score(name, random_percent * 10)
-    else:
-        random_percent = -round(await secure_uniform(min_fall, max_fall), 4)
-        await change_trend_score(name, random_percent * 10)
+    try:
+        if roll <= chance:
+            random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
+            await send_for_admins(f"{name} резко изменилась в цене (chance: {round(trend_score, 2)}%)!")
+            await change_trend_score(name, 0)
+        elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
+            random_percent = round(await secure_uniform(min_growth, max_growth), 4)
+            await change_trend_score(name, random_percent * 10)
+        else:
+            random_percent = -round(await secure_uniform(min_fall, max_fall), 4)
+            await change_trend_score(name, random_percent * 10)
 
-    new_price = round(coin_info['cost'] * (1 + random_percent), 4)
-    new_diff_percent = round(random_percent * 100, 4)
+        new_price = round(coin_info['cost'] * (1 + random_percent), 4)
+        new_diff_percent = round(random_percent * 100, 4)
 
-    if name == "v":
-        await bot.send_message(config.admin_id, "<b>✅ Цена успешно изменена!</b>", reply_markup=main)
-
-    await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
-
+        await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
+    except:
+        await send_for_admins("❌ Произошла ошибка во время изменения цены")
 
 async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:
     """
@@ -935,7 +933,7 @@ async def send_single_message(bot: Bot, user_id: int, text: str) -> None:
         raise
 
 
-async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
+async def send_broadcast_message(state: FSMContext, bot: Bot, author_id: int) -> None:
     try:
         all_users: list[dict[str, Any]] = await db.select_data("users", "*", fetch_all=True)
     except PostgresError:
@@ -943,7 +941,6 @@ async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
         return
 
     if not all_users:
-        await bot.send_message(config.admin_id, "Нет пользователей для рассылки.")
         return
 
     successful = 0
@@ -973,7 +970,7 @@ async def send_broadcast_message(state: FSMContext, bot: Bot) -> None:
 
     try:
         await bot.send_message(
-            config.admin_id,
+            author_id,
             f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}"
         )
     except TelegramAPIError:

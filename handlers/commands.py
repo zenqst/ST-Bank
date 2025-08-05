@@ -20,7 +20,8 @@ from database.queries import (
     check_profile,
     send_broadcast_message,
 )
-from keyboards.reply import main, register
+from keyboards.builders import create_main_buttons
+from keyboards.reply import register
 from states.enums import UserStatus
 from states.fsm_states import BroadcastText
 
@@ -40,8 +41,9 @@ async def start(message: Message):
 
     user_id = message.from_user.id
     status = await check_profile(user_id)
-    
-    keyboard = register if status == UserStatus.NOT_FOUND else main
+    main_kb = await create_main_buttons(user_id)
+
+    keyboard = register if status == UserStatus.NOT_FOUND else main_kb
 
     version = await get_version_from_pyproject()
 
@@ -60,7 +62,7 @@ async def check_handler(message: Message, state: FSMContext):
 @router.message(Command("change"))
 async def change_handler(message: Message, bot: Bot):
     await change_coin("st", bot)
-    await message.answer("Валюта ST изменена")
+    await message.answer("Валюта ST изменена\n\n")
 
 
 @router.message(Command("chance"))
@@ -107,7 +109,7 @@ async def interaction_amount_handler(message: Message, state: FSMContext, bot: B
         formatted_text = html_decoration.unparse(message.caption, message.caption_entities)
     
     await state.update_data(sending_text=formatted_text)
-    await send_broadcast_message(state, bot)
+    await send_broadcast_message(state, bot, message.from_user.id)
 
 
 @router.message(Command("game"))
@@ -129,7 +131,7 @@ async def handler_game(message: Message):
 
 @router.message(Command("shut"))
 async def shutdown_handler(message: Message):
-    if message.from_user.id != config.admin_id:
+    if message.from_user.id not in config.admin_ids:
         pass
 
     await message.answer("Бот выключается...")

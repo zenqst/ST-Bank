@@ -2,9 +2,12 @@ from aiogram import F, Router
 from aiogram.types import Message
 
 from database.queries import get_profile, register, send_prices_msg, send_profile
-from keyboards.builders import create_box_button
-from keyboards.reply import main
+from keyboards.builders import create_box_button, create_main_buttons
+from keyboards.inline import admin_buttons
 from states.enums import UserStatus
+
+from config_reader import config
+from datetime import datetime
 
 router = Router()
 
@@ -18,9 +21,10 @@ async def start_message(message: Message):
     username = message.from_user.username
 
     status = await register(user_id, username)
+    main_kb = await create_main_buttons(user_id)
 
     if status == UserStatus.SUCCESS:
-        await message.reply("✅ <b>Поздравляю! Вы открыли брокерский счёт в ST Bank.</b>\n\nВ подарок вам было выдано <b>5000₽, 15ST, 3V и 3 📦</b>\n\n⚠️ Акции не являются настоящими. Все валюты исключительно виртуальные и не связаны с реальными денежными средствами.", reply_markup=main)
+        await message.reply("✅ <b>Поздравляю! Вы открыли брокерский счёт в ST Bank.</b>\n\nВ подарок вам было выдано <b>5000₽, 15ST, 3V и 3 📦</b>\n\n⚠️ Акции не являются настоящими. Все валюты исключительно виртуальные и не связаны с реальными денежными средствами.", reply_markup=main_kb)
     elif status == UserStatus.ALREADY_EXISTS:
         await message.reply("❌ <b>Вы уже были зарегистрированы ранее!</b>")
     else:
@@ -59,3 +63,28 @@ async def boxes(message: Message):
     )
 
     await message.answer(text, reply_markup=inline_kb)
+
+
+@router.message(F.text.lower().in_(["🎛 админ-панель"]))
+async def admin_panel(message: Message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+
+    if user_id not in config.admin_ids:
+        return
+
+    text = (
+        "<b>ST-Bank | Админ-панель</b>\n\n"
+        f"Добро пожаловать, @{username}\n"
+        f"Текущее время: {datetime.now().strftime("%d.%m.%Y %H:%M:%S")}\n\n"
+        "Доступные команды на данный момент:\n"
+        "1. Получение списка всех юзеров\n"
+        "2. Получение профиля определённого юзера\n"
+        "3. Изменение любой информации о юзере\n"
+        "4. Изменение цены любой валюты\n"
+        "5. Рассылка сообщения\n"
+        "6. Получение последних 50-ти строк логов\n"
+        "7. Выключение бота\n"
+    )
+
+    await message.answer(text, reply_markup=admin_buttons)

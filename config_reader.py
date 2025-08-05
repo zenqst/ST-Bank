@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     
 
 class Config:
-    admin_id = 980316238
+    admin_ids = [980316238]
     rarities: dict[str, RarityInfo] = {
         "legendary": {'name': 'legendary', 'display_name': 'Легендарная', 'icon': '🟡', 'chance': 1, 'compensation': 1100, 'order': 0},
         "mythic": {'name': 'mythic', 'display_name': 'Мифическая', 'icon': '🔴', 'chance': 3, 'compensation': 700, 'order': 1},
