@@ -140,3 +140,11 @@ admin_buttons = InlineKeyboardMarkup(
         ]
     ]
 )
+
+admins_return_buttons = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🔙 Вернуться в меню", callback_data=ReturnCallback(prev_step=Steps.ADMIN).pack())
+        ],
+    ]
+)

@@ -2,7 +2,12 @@ from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from database.queries import edit_currencies_handler, send_prices_msg, send_profile
+from database.queries import (
+    edit_currencies_handler,
+    send_admin_panel_message,
+    send_prices_msg,
+    send_profile,
+)
 from keyboards.inline import ReturnCallback
 from states.enums import Steps
 
@@ -24,3 +29,5 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
         await send_prices_msg(call)
     elif callback_data.prev_step == Steps.CURRENCIES:
         await edit_currencies_handler(state, callback_data, bot, call)
+    elif callback_data.prev_step == Steps.ADMIN:
+        await send_admin_panel_message(user_id, username, call)

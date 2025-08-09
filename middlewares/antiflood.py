@@ -35,7 +35,6 @@ class AntifloodMiddleware(BaseMiddleware):
 
         key = f"{throttling_key}:{user_id}"
 
-
         if key in self.cache:
             if user_id not in self.warned_users:
                 self.warned_users[user_id] = True

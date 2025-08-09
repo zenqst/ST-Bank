@@ -31,3 +31,4 @@ class Steps(Enum):
     PROFILE = 'profile'
     ACTIONS = 'actions'
     CURRENCIES = 'currencies'
+    ADMIN = 'admin'

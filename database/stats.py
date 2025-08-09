@@ -125,7 +125,6 @@ class StatsManager:
 
         return profit, invested_in_sold, new_lots
 
-
     async def record_sell(self, currency: str, amount: float, price: float):
         self._init_counters()
         self._init_currency_fields(currency)

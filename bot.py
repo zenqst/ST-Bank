@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from callbacks import common, returns, trade
+from callbacks import admins, common, returns, trade
 from config_reader import settings
 from database.core import db
 from database.queries import change_all_coins
@@ -33,6 +33,7 @@ async def main():
     dp.message.middleware(AntifloodMiddleware(1))
 
     dp.include_routers(
+        admins.router,
         commands.router,
         messages.router,
         returns.router,

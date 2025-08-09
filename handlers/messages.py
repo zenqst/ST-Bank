@@ -1,13 +1,16 @@
+
 from aiogram import F, Router
 from aiogram.types import Message
 
-from database.queries import get_profile, register, send_prices_msg, send_profile
+from database.queries import (
+    get_profile,
+    register,
+    send_admin_panel_message,
+    send_prices_msg,
+    send_profile,
+)
 from keyboards.builders import create_box_button, create_main_buttons
-from keyboards.inline import admin_buttons
 from states.enums import UserStatus
-
-from config_reader import config
-from datetime import datetime
 
 router = Router()
 
@@ -70,21 +73,4 @@ async def admin_panel(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
 
-    if user_id not in config.admin_ids:
-        return
-
-    text = (
-        "<b>ST-Bank | Админ-панель</b>\n\n"
-        f"Добро пожаловать, @{username}\n"
-        f"Текущее время: {datetime.now().strftime("%d.%m.%Y %H:%M:%S")}\n\n"
-        "Доступные команды на данный момент:\n"
-        "1. Получение списка всех юзеров\n"
-        "2. Получение профиля определённого юзера\n"
-        "3. Изменение любой информации о юзере\n"
-        "4. Изменение цены любой валюты\n"
-        "5. Рассылка сообщения\n"
-        "6. Получение последних 50-ти строк логов\n"
-        "7. Выключение бота\n"
-    )
-
-    await message.answer(text, reply_markup=admin_buttons)
+    await send_admin_panel_message(user_id, username, message)

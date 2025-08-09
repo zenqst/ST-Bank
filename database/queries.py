@@ -3,7 +3,8 @@ import logging
 import math
 import random as rn
 import secrets
-from json import dumps, loads, JSONDecodeError
+from datetime import datetime
+from json import JSONDecodeError, dumps, loads
 from typing import Any
 
 import prettytable as pt
@@ -18,12 +19,13 @@ from millify import millify
 from config_reader import Coin, config, st, v
 from database.core import db
 from database.stats import StatsManager
-from keyboards.builders import create_box_button, create_main_buttons
+from keyboards.builders import create_box_button
 from keyboards.inline import (
     ActionCallback,
     CurrencyCallback,
     ReturnCallback,
     action_buttons,
+    admin_buttons,
     agree_buttons,
     choose_currency_buttons,
     items_buttons,
@@ -251,6 +253,7 @@ async def send_for_admins(text: str, bot: Bot) -> None:
     for adm_id in config.admin_ids:
         await send_single_message(bot, adm_id, text)
 
+
 async def secure_uniform(a: float, b: float) -> float:
     """Безопасный аналог random.uniform для float."""
     # secrets.randbelow работает только с int, поэтому имитируем float:
@@ -302,6 +305,7 @@ async def change_coin(name: str, bot: Bot) -> None:
         await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
     except:
         await send_for_admins("❌ Произошла ошибка во время изменения цены")
+
 
 async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:
     """
@@ -1026,6 +1030,34 @@ async def show_stats(username: str, user_id: int, call: CallbackQuery) -> None:
     )
 
     await call.message.edit_text(text, reply_markup=items_buttons)
+
+
+async def send_admin_panel_message(user_id: int, username: str, message: CallbackQuery | Message) -> None:
+    if user_id not in config.admin_ids:
+        return
+    
+    text = (
+        "<b>ST-Bank | Админ-панель</b>\n\n"
+        f"Добро пожаловать, @{username}\n"
+        f"Текущее время: {datetime.now().strftime("%d.%m.%Y %H:%M:%S")}\n\n"
+        "Доступные команды на данный момент:\n"
+        "1. Получение списка всех юзеров\n"
+        "2. Получение профиля определённого юзера\n"
+        "3. Изменение любой информации о юзере\n"
+        "4. Изменение цены любой валюты\n"
+        "5. Рассылка сообщения\n"
+        "6. Получение последних 50-ти строк логов\n"
+        "7. Выключение бота\n"
+    )
+
+    if isinstance(message, Message):
+        await message.answer(text, reply_markup=admin_buttons)
+    elif isinstance(message, CallbackQuery):
+        if message.message is not None and isinstance(message.message, Message):
+            await message.message.edit_text(text, reply_markup=admin_buttons)
+            await message.answer()
+        else:
+            await message.answer(text, reply_markup=admin_buttons)
 
 
 async def check_casino_balance(user_id):

@@ -1,10 +1,9 @@
 from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
+from config_reader import config
 from keyboards.inline import BoxCallback
 from states.enums import CoinActions
-
-from config_reader import config
 
 
 async def create_box_button(*, amount: int | None, box_balance: int) -> InlineKeyboardMarkup | None:
