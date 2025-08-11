@@ -232,7 +232,8 @@ class StatsManager:
     async def save(self):
         await self.db.update_data("users", {"stats": dumps(self.stats), "trades": dumps(self.trades)}, {"id": self.user_id})
 
-    async def show_stats(self, username: str, user_id: int, call: CallbackQuery) -> None:
+    @staticmethod
+    async def show_stats(username: str, user_id: int, call: CallbackQuery) -> None:
         stats = StatsManager(user_id)
         await stats.load()
 

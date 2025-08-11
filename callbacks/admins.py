@@ -1,9 +1,11 @@
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 
 from database.core import db
+from database.messages import send_profile
 from keyboards.inline import AdminCallback, admins_return_buttons
+from states.fsm_states import AdminPanelId
 
 router = Router()
 
@@ -25,8 +27,23 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
         for i, user in enumerate(users):
             username = user.get("username")
             user_id = user.get("id")
-            text += f"{i + 1}. @{username} ({user_id})\n"
+            text += f"{i + 1}. @{username} (<code>{user_id}</code>)\n"
         
         text += f"\nОбщее кол-во пользователей: {len(users)}"
+        await call.message.edit_text(text, reply_markup=admins_return_buttons)
     
-    await call.message.edit_text(text, reply_markup=admins_return_buttons)
+    if callback_data.action == "get_user":
+        await bot.answer_callback_query(call.id)
+        
+        msg = await call.message.edit_text("Введите ID пользователя")
+        await state.set_state(AdminPanelId.msg_id)
+        await state.update_data(msg_id=msg.message_id)
+
+        await state.set_state(AdminPanelId.user_id)
+
+@router.message(AdminPanelId.user_id)
+async def profile_id_handler(message: Message, state: FSMContext, bot: Bot):
+    user_id = message.text
+    await state.update_data(user_id=int(user_id))
+    await state.set_state(None)
+    await send_profile(int(user_id), message.from_user.username, message, is_admin=True)

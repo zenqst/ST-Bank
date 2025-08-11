@@ -11,22 +11,31 @@ from asyncpg.exceptions import PostgresError
 
 from config_reader import config
 from database.core import db
+from database.currencies import get_price
 from database.user import get_profile
-from database.utils import format_number, get_price, send_table
-from keyboards.inline import action_buttons, admin_buttons, profile_buttons
+from database.utils import format_number, send_table
+from keyboards.inline import action_buttons, admin_buttons, profile_buttons, admins_return_buttons
 from states.types import TableProfile
 
 logger = logging.getLogger(__name__)
 
 
 async def send_prices_msg(message: Message | CallbackQuery) -> None:
+    """
+    Функция, которая отправляет текущие цены
+
+    :param message: Message or CallbackQuery
+    :return: None
+    """
     st_price = await get_price("st")
     v_price = await get_price("v")
+
     text = (
         "<b>Текущие цены:</b>\n"
         f"1 ST = {st_price['cost']} RUB <i>({st_price['diff']})</i>\n"
         f"1 V = {v_price['cost']} RUB <i>({v_price['diff']})</i>"
     )
+
     if isinstance(message, Message):
         await message.answer(text, reply_markup=action_buttons)
     elif isinstance(message, CallbackQuery):
@@ -57,28 +66,35 @@ async def send_broadcast_message(state: FSMContext, bot: Bot, author_id: int) ->
     except PostgresError:
         logger.exception("Ошибка при получении списка пользователей: %s")
         return
+
     if not all_users:
         return
+
     successful = 0
     failed = 0
     tasks = []
     data = await state.get_data()
     text = data['sending_text']
+
     for user in all_users:
         user_id = user.get("id")
         if not user_id:
             logger.warning("Пропущен пользователь без ID: %s", user)
             failed += 1
             continue
+
         task = asyncio.create_task(send_single_message(bot, user_id, text))
         tasks.append(task)
+
     results = await asyncio.gather(*tasks, return_exceptions=True)
+
     for result in results:
         if isinstance(result, Exception):
             logger.error("Ошибка при отправке сообщения: %s", result)
             failed += 1
         else:
             successful += 1
+
     try:
         await bot.send_message(
             author_id,
@@ -86,10 +102,19 @@ async def send_broadcast_message(state: FSMContext, bot: Bot, author_id: int) ->
         )
     except TelegramAPIError:
         logger.exception("Не удалось отправить отчёт админу: %s")
+
     await state.clear()
 
 
-async def send_profile(user_id: int, username: str | None, message: Message | CallbackQuery) -> None:
+async def send_profile(user_id: int, username: str | None, message: Message | CallbackQuery, is_admin: bool = False) -> None:
+    """
+    Функция для отправки сообщения с профилем
+
+    :param user_id: Айди юзера
+    :param username: Никнейм юзера
+    :param message: Message или CallbackQuery (зависит от расположения функции)
+    :return: None
+    """
     data: TableProfile = await get_profile(user_id)
     st_price = await get_price("st")
     v_price = await get_price("v")
@@ -106,14 +131,16 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
     table = await send_table(data_for_table, total_formatted_value)
     username_text = f"@{username}" if username else ""
     text = f"<b>📋 Профиль пользователя {username_text}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
+    buttons = profile_buttons if not is_admin else admins_return_buttons
+
     if isinstance(message, Message):
-        await message.answer(text, reply_markup=profile_buttons)
+        await message.answer(text, reply_markup=buttons)
     elif isinstance(message, CallbackQuery):
         if message.message is not None and isinstance(message.message, Message):
-            await message.message.edit_text(text, reply_markup=profile_buttons)
+            await message.message.edit_text(text, reply_markup=buttons)
             await message.answer()
         else:
-            await message.answer(text, reply_markup=profile_buttons)
+            await message.answer(text, reply_markup=buttons)
 
 
 async def send_admin_panel_message(user_id: int, username: str, message: CallbackQuery | Message) -> None:
@@ -140,5 +167,3 @@ async def send_admin_panel_message(user_id: int, username: str, message: Callbac
             await message.answer()
         else:
             await message.answer(text, reply_markup=admin_buttons)
-
-

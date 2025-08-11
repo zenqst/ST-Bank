@@ -10,7 +10,6 @@ from aiogram.types import CallbackQuery, Message
 
 from config_reader import Coin, st, v
 from database.core import db
-from database.messages import send_for_admins
 from database.stats import StatsManager
 from database.user import get_profile
 from database.utils import get_price
@@ -250,6 +249,8 @@ async def secure_uniform(a: float, b: float) -> float:
 
 
 async def change_coin(name: str, bot: Bot) -> None:
+    from database.messages import send_for_admins
+
     coins_map = {'st': st, 'v': v}
     coin: Coin = coins_map[name]
     max_growth: float = coin.max_growth
