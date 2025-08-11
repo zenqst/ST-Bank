@@ -2,12 +2,8 @@ from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from database.queries import (
-    edit_currencies_handler,
-    send_admin_panel_message,
-    send_prices_msg,
-    send_profile,
-)
+from database.currencies import edit_currencies_handler
+from database.messages import send_admin_panel_message, send_prices_msg, send_profile
 from keyboards.inline import ReturnCallback
 from states.enums import Steps
 

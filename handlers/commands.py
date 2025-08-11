@@ -13,13 +13,9 @@ from aiogram.utils.text_decorations import html_decoration
 
 from config_reader import config
 from database.core import db
-from database.queries import (
-    calculate_precise_growth_chance,
-    change_coin,
-    check_casino_balance,
-    check_profile,
-    send_broadcast_message,
-)
+from database.currencies import calculate_precise_growth_chance, change_coin
+from database.messages import send_broadcast_message
+from database.user import check_casino_balance, check_profile
 from keyboards.builders import create_main_buttons
 from keyboards.reply import register
 from states.enums import UserStatus

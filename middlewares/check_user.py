@@ -4,7 +4,7 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
-from database.queries import check_profile
+from database.user import check_profile
 from states.enums import UserStatus
 
 

@@ -4,15 +4,15 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from database.queries import (
+from database.currencies import (
     adv_interaction,
     build_amount_prompt,
     edit_amount_handler,
     edit_currencies_handler,
     final_interaction,
-    open_box,
     timeout_checker,
 )
+from database.loot import open_box
 from keyboards import inline
 from keyboards.inline import ActionCallback, BoxCallback, CurrencyCallback
 from states.enums import CoinActions

@@ -2,13 +2,8 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from database.queries import (
-    get_profile,
-    register,
-    send_admin_panel_message,
-    send_prices_msg,
-    send_profile,
-)
+from database.messages import send_admin_panel_message, send_prices_msg, send_profile
+from database.user import get_profile, register
 from keyboards.builders import create_box_button, create_main_buttons
 from states.enums import UserStatus
 

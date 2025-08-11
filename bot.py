@@ -8,7 +8,7 @@ from aiogram.enums import ParseMode
 from callbacks import admins, common, returns, trade
 from config_reader import settings
 from database.core import db
-from database.queries import change_all_coins
+from database.currencies import change_all_coins
 from handlers import commands, messages
 from keep_alive import keep_alive
 from middlewares.antiflood import AntifloodMiddleware

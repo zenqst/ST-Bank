@@ -3,7 +3,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from database.core import db
-from database.queries import show_items, show_stats
+from database.loot import show_items
+from database.stats import StatsManager
 from keyboards.inline import bankrupt_buttons
 
 router = Router()
@@ -28,7 +29,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
 
     elif call.data == "stats":
         await bot.answer_callback_query(call.id)
-        await show_stats(username, user_id, call)
+        await StatsManager(user_id).show_stats(username, user_id, call)
 
     elif call.data == "bankrupt":
         await bot.answer_callback_query(call.id)
