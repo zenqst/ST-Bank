@@ -31,7 +31,7 @@
 - **Language:** Python 3.11+
 - **Database:** PostgreSQL (via `asyncpg`)
 - **Bot Framework:** `aiogram`
-- **Other Tools:** `python-dotenv`, `PrettyTable`, `aiohttp`, `pydentic`
+- **Other Tools:** `python-dotenv`, `PrettyTable`, `aiohttp`, `pydentic`, `uv`, `ruff`
 
 ---
 
@@ -47,7 +47,7 @@ cd ST-Bank
 ### 2. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+uv install
 ```
 
 ### 3. Configure environment variables
@@ -69,12 +69,10 @@ GITHUB_REPO=USERNAME/REPO
 GITHUB_REF=REF
 ```
 
-> Use `.env.example` as a reference.
-
 ### 4. Run the bot
 
 ```bash
-python bot.py
+uv run bot.py
 ```
 
 ----------
@@ -88,16 +86,20 @@ ST-Bank/
 ├── bot.py
 ├── config_reader.py
 ├── keep_alive.py
-├── poerty.lock
+├── uv.lock
 ├── pyproject.toml
 ├── callbacks/
+│   ├── admins.py
 │   ├── common.py
 │   ├── returns.py
 │   └── trade.py
 ├── database/
 │   ├── core.py
-│   ├── queries.py
-│   └── stats.py
+│   ├── currencies.py
+│   ├── loot.py
+│   ├── stats.py
+│   ├── messages.py
+│   └── utils.py
 ├── handlers/
 │   ├── commands.py
 │   └── messages.py
