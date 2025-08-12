@@ -37,7 +37,8 @@ async def test_buy_and_sell_flow():
     await stats.record_sell("ST", amount=5, price=150)
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 5
     assert stats.stats["average_sell_price"]["ST"] == 150.0
-    assert stats.stats["roi"]["ST"] == pytest.approx(50.0)
+    # ROI = (прибыль/общие_инвестиции)*100 = (250/1000)*100 = 25%
+    assert stats.stats["roi"]["ST"] == pytest.approx(25.0)
     await stats.save()
     # Вывод итогового JSON
     print("\n📊 Итоговая статистика (Buy/Sell):")
@@ -81,7 +82,7 @@ async def test_sell_exact_amount():
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 0
     # Счетчик продаж должен увеличиться
     assert stats.stats["deal_count"]["sell"] == 1
-    # ROI должен быть 50%: (750-500)/500*100 = 50%
+    # ROI должен быть 50%: profit = 5*(150-100) = 250, invested = 5*100 = 500, roi = 250/500*100 = 50%
     assert stats.stats["roi"]["ST"] == pytest.approx(50.0)
     await stats.save()
     print("\n📊 Итоговая статистика (Sell Exact Amount):")
@@ -103,12 +104,12 @@ async def test_multiple_coins():
     await stats.record_sell("V", amount=5, price=3200)
     # Проверка ST
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 1
-    # ROI для ST: profit = 1*(55000-50000) = 5000, invested = 1*50000 = 50000, roi = 5000/50000*100 = 10%
-    assert stats.stats["roi"]["ST"] == pytest.approx(10.0)
+    # ROI для ST: profit = 1*(55000-50000) = 5000, invested = 2*50000 = 100000, roi = 5000/100000*100 = 5%
+    assert stats.stats["roi"]["ST"] == pytest.approx(5.0)
     # Проверка V
     assert stats.stats["current_portfolio"]["V"]["amount"] == 5
-    # ROI для V: profit = 5*(3200-3000) = 1000, invested = 5*3000 = 15000, roi = 1000/15000*100 = 6.67%
-    assert stats.stats["roi"]["V"] == pytest.approx(6.67, abs=0.01)
+    # ROI для V: profit = 5*(3200-3000) = 1000, invested = 10*3000 = 30000, roi = 1000/30000*100 = 3.33%
+    assert stats.stats["roi"]["V"] == pytest.approx(3.33, abs=0.01)
     # Проверка общих счетчиков
     assert stats.stats["deal_count"]["buy"] == 2
     assert stats.stats["deal_count"]["sell"] == 2
@@ -179,8 +180,8 @@ async def test_multi_day_trading():
     assert "2024-01-03" in stats.stats["profit_by_day"]
     assert "2024-01-01" not in stats.stats["profit_by_day"]
     assert "2024-01-02" not in stats.stats["profit_by_day"]
-    # ROI для ST после продажи
-    assert stats.stats["roi"]["ST"] == pytest.approx(50.0)  # (750-500)/500*100
+    # ROI для ST после продажи: profit = 5*(150-100) = 250, invested = 10*100 = 1000, roi = 250/1000*100 = 25%
+    assert stats.stats["roi"]["ST"] == pytest.approx(25.0)
     await stats.save()
     print("\n📊 Итоговая статистика (Multi-Day Trading):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
@@ -399,7 +400,8 @@ async def test_avg_price_and_roi_precision():
     await stats.record_sell("V", amount=1.3333, price=150.9876)
     roi = stats.stats["roi"]["V"]
     assert isinstance(roi, float)
-    assert abs(roi - ((150.9876 - 123.4567) / 123.4567 * 100)) < 0.05
+    expected_roi = ((150.9876 - 123.4567) / 123.4567 * 100)
+    assert abs(roi - expected_roi) < 0.05
 
 
 @pytest.mark.asyncio
@@ -416,3 +418,6 @@ async def test_last_active_changes_each_time():
         second_time = stats.stats["last_active"]
 
     assert first_time != second_time
+    assert first_time == "2025-01-01T10:00:00"
+    assert second_time == "2025-01-02T11:00:00"
+    await stats.save()
