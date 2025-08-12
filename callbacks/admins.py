@@ -1,13 +1,19 @@
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from aiogram.utils.text_decorations import html_decoration
 
 from database.core import db
 from database.currencies import change_coin, get_price
-from database.messages import send_profile
-from keyboards.inline import AdminCallback, admins_return_buttons, admin_currency_buttons, cancel_button
-from states.fsm_states import AdminPanelId
+from database.messages import send_broadcast_message, send_profile
+from keyboards.inline import (
+    AdminCallback,
+    admin_currency_buttons,
+    admins_return_buttons,
+    cancel_button,
+)
 from states.enums import Currencies
+from states.fsm_states import AdminPanelId, BroadcastText
 
 router = Router()
 
@@ -19,8 +25,6 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
 
     if call.message is None:
         return
-
-    print(callback_data.action)
     
     if callback_data.action == "get_all_users":
         await bot.answer_callback_query(call.id)
@@ -39,7 +43,7 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
     elif callback_data.action == "get_user":
         await bot.answer_callback_query(call.id)
         
-        await call.message.edit_text("Введите ID пользователя")
+        await call.message.edit_text("📝 Введите ID пользователя")
 
         await state.set_state(AdminPanelId.user_id)
 
@@ -53,10 +57,16 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
         
         coin_info = await get_price(callback_data.action, is_round=False)
         
-        await call.message.edit_text(f"Введите новую цену {callback_data.action}\n\nТекущая цена: {coin_info['cost']}", reply_markup=admin_currency_buttons)
+        await call.message.edit_text(f"📝 Введите новую цену {callback_data.action}\n\nТекущая цена: {coin_info['cost']}", reply_markup=admin_currency_buttons)
         await state.set_state(AdminPanelId.coin)
         await state.update_data(coin=callback_data.action)
         await state.set_state(AdminPanelId.amount)
+
+    elif callback_data.action == "start_mailing":
+        await bot.answer_callback_query(call.id)
+        
+        await call.message.edit_text("📝 В следующем сообщении отправьте текст для рассылки")
+        await state.set_state(BroadcastText.sending_text)
 
 
 @router.message(AdminPanelId.user_id)
@@ -83,3 +93,22 @@ async def amount_handler(message: Message, state: FSMContext, bot: Bot):
     except ValueError:
         await message.answer("❌ <b>Пожалуйста, введите корректное число</b>", reply_markup=cancel_button)
         return
+
+
+@router.message(BroadcastText.sending_text)
+async def interaction_amount_handler(message: Message, state: FSMContext, bot: Bot):
+    if message.text:
+        formatted_text = message.text
+    elif message.caption:
+        formatted_text = message.caption
+    else:
+        await message.answer("❌ Пожалуйста, отправьте текст для рассылки")
+        return
+    
+    if message.text and message.entities:
+        formatted_text = html_decoration.unparse(message.text, message.entities)
+    elif message.caption and message.caption_entities:
+        formatted_text = html_decoration.unparse(message.caption, message.caption_entities)
+    
+    await state.update_data(sending_text=formatted_text)
+    await send_broadcast_message(state, bot, message.from_user.id)

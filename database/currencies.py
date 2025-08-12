@@ -1,7 +1,7 @@
 import asyncio
 import math
-import secrets
 import random as rn
+import secrets
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest

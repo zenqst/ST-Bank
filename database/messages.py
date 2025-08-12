@@ -14,7 +14,7 @@ from database.core import db
 from database.currencies import get_price
 from database.user import get_profile
 from database.utils import format_number, send_table
-from keyboards.inline import action_buttons, admin_buttons, profile_buttons, admins_return_buttons
+from keyboards.inline import action_buttons, admin_buttons, admins_return_buttons, profile_buttons
 from states.types import TableProfile
 
 logger = logging.getLogger(__name__)
