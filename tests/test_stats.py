@@ -378,9 +378,6 @@ async def test_sell_fifo_lots():
     await stats.record_buy("ST", amount=5, price=300)  # Лот 3
 
     profit = await stats.record_sell("ST", amount=6, price=400)
-    # Лот1: 2*(400-100) = 600
-    # Лот2: 3*(400-200) = 600
-    # Лот3: 1*(400-300) = 100
     assert profit == pytest.approx(1300)
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 4
     assert stats.trades["ST"][0]["price"] == 300

@@ -1,3 +1,5 @@
+from asyncio import create_task
+
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -14,6 +16,7 @@ from keyboards.inline import (
 )
 from states.enums import Currencies
 from states.fsm_states import AdminPanelId, BroadcastText
+from utils.control import shutdown
 
 router = Router()
 
@@ -67,6 +70,12 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
         
         await call.message.edit_text("📝 В следующем сообщении отправьте текст для рассылки")
         await state.set_state(BroadcastText.sending_text)
+
+    elif callback_data.action == "stop_bot":
+        await bot.answer_callback_query(call.id)
+        
+        await call.message.edit_text("Бот выключается...")
+        create_task(shutdown())
 
 
 @router.message(AdminPanelId.user_id)
