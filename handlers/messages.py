@@ -2,8 +2,11 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
+from asyncio import sleep
+from random import uniform
+from database.core import db
 from database.messages import send_admin_panel_message, send_prices_msg, send_profile
-from database.user import get_profile, register
+from database.user import check_casino_balance, get_profile, register
 from keyboards.builders import create_box_button, create_main_buttons
 from states.enums import UserStatus
 
@@ -69,3 +72,20 @@ async def admin_panel(message: Message):
     username = message.from_user.username
 
     await send_admin_panel_message(user_id, username, message)
+
+
+@router.message(F.text.lower().in_(["🎰 игра [β]"]))
+async def game(message: Message):
+    user_id = message.from_user.id
+
+    msg = await message.answer_dice(emoji="🎰")
+    value = msg.dice.value
+    balance = await check_casino_balance(user_id)
+
+    balance_now = balance['casino_pts'] + value - 30
+    await db.update_data("users", {"casino_pts": balance_now}, {"id": user_id})
+
+    res_msg = await msg.reply("⏳ <b>Обработка результата...</b>")
+    await sleep(2.5)
+
+    await res_msg.edit_text(f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now}")

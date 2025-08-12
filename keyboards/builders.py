@@ -58,11 +58,12 @@ async def create_main_buttons(user_id: int) -> ReplyKeyboardMarkup:
     
     builder.button(text="📊 Торговать")
     builder.button(text="📦 Открыть бокс")
+    builder.button(text="🎰 Игра [β]")
     builder.button(text="📋 Профиль")
-    builder.adjust(2, 1)
+    builder.adjust(2, 1, 1)
     
     if user_id in config.admin_ids:
         builder.button(text="🎛 Админ-панель")
-        builder.adjust(2, 1, 1)
+        builder.adjust(2, 1, 1, 1)
 
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=False, input_field_placeholder="Выберите действие из меню", selective=True)
