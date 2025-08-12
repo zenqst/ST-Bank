@@ -124,7 +124,7 @@ ST-Bank/
 ## 📄 Documentation
 
 -   User commands via Telegram bot
--   Business logic in `data/datebase.py`
+-   Business logic in `database/`
 -   Coin model and price flow
 -   Integration setup for Google Sheets
 -   Environment configuration via `.env`

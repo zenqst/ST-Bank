@@ -3,9 +3,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from database.core import db
+from database.currencies import change_coin, get_price
 from database.messages import send_profile
-from keyboards.inline import AdminCallback, admins_return_buttons
+from keyboards.inline import AdminCallback, admins_return_buttons, admin_currency_buttons, cancel_button
 from states.fsm_states import AdminPanelId
+from states.enums import Currencies
 
 router = Router()
 
@@ -17,6 +19,8 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
 
     if call.message is None:
         return
+
+    print(callback_data.action)
     
     if callback_data.action == "get_all_users":
         await bot.answer_callback_query(call.id)
@@ -32,18 +36,50 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
         text += f"\nОбщее кол-во пользователей: {len(users)}"
         await call.message.edit_text(text, reply_markup=admins_return_buttons)
     
-    if callback_data.action == "get_user":
+    elif callback_data.action == "get_user":
         await bot.answer_callback_query(call.id)
         
-        msg = await call.message.edit_text("Введите ID пользователя")
-        await state.set_state(AdminPanelId.msg_id)
-        await state.update_data(msg_id=msg.message_id)
+        await call.message.edit_text("Введите ID пользователя")
 
         await state.set_state(AdminPanelId.user_id)
 
+    elif callback_data.action == "change_coin":
+        await bot.answer_callback_query(call.id)
+        
+        await call.message.edit_text("Выберите валюту", reply_markup=admin_currency_buttons)
+
+    elif callback_data.action in [Currencies.ST.value, Currencies.V.value]:
+        await bot.answer_callback_query(call.id)
+        
+        coin_info = await get_price(callback_data.action, is_round=False)
+        
+        await call.message.edit_text(f"Введите новую цену {callback_data.action}\n\nТекущая цена: {coin_info['cost']}", reply_markup=admin_currency_buttons)
+        await state.set_state(AdminPanelId.coin)
+        await state.update_data(coin=callback_data.action)
+        await state.set_state(AdminPanelId.amount)
+
+
 @router.message(AdminPanelId.user_id)
-async def profile_id_handler(message: Message, state: FSMContext, bot: Bot):
+async def profile_id_handler(message: Message, state: FSMContext):
     user_id = message.text
     await state.update_data(user_id=int(user_id))
-    await state.set_state(None)
     await send_profile(int(user_id), message.from_user.username, message, is_admin=True)
+    await state.clear()
+
+
+@router.message(AdminPanelId.amount)
+async def amount_handler(message: Message, state: FSMContext, bot: Bot):
+    amount_text = message.text.replace(',', '.')    
+    data = await state.get_data()
+    
+    try:
+        amount_float = float(amount_text)
+
+        if amount_float <= 0:
+            await message.answer("❌ <b>Пожалуйста, введите положительное число больше 0</b>", reply_markup=cancel_button)
+        else:
+            await change_coin(data['coin'], bot, amount_float)
+            await state.clear()
+    except ValueError:
+        await message.answer("❌ <b>Пожалуйста, введите корректное число</b>", reply_markup=cancel_button)
+        return

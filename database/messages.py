@@ -46,7 +46,7 @@ async def send_prices_msg(message: Message | CallbackQuery) -> None:
             await message.answer(text, reply_markup=action_buttons)
 
 
-async def send_for_admins(text: str, bot: Bot) -> None:
+async def send_for_admins(bot: Bot, text: str) -> None:
     for adm_id in config.admin_ids:
         await send_single_message(bot, adm_id, text)
 

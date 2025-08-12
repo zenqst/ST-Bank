@@ -248,25 +248,43 @@ async def secure_uniform(a: float, b: float) -> float:
     return a + rand
 
 
-async def change_coin(name: str, bot: Bot) -> None:
+async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
+    """
+    Функция, которая меняет цену валюты
+    :param name: Название валюты
+    :param bot: Бот
+    :param price: Цена (необходимо указывать, когда меняем цену вручную)
+    :return: None
+    """
     from database.messages import send_for_admins
 
     coins_map = {'st': st, 'v': v}
+
     coin: Coin = coins_map[name]
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
     min_price: float = coin.min_price
     min_growth: float = coin.min_growth
     min_fall: float = coin.min_fall
+
     coin_info = await get_price(name, is_round=False)
+
     trend_score: float = coin_info['trend_score']
     score = abs(trend_score)
+
     chance = min(100, score)
+
     roll = secrets.randbelow(100) + 1
+
     try:
+        if price is not None:
+            await db.update_data("coins", {"cost": price, "diff": ((price - coin_info['cost']) / coin_info['cost']) * 100}, {"name": name})
+            await change_trend_score(name, 0)
+            await send_for_admins(bot, f"⚠️ {name.upper()} была вручную изменена администратором.\n\nТекущая цена: {price}")
+            return
         if roll <= chance:
             random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
-            await send_for_admins(f"{name} резко изменилась в цене (chance: {round(trend_score, 2)}%)!")
+            await send_for_admins(bot, f"⚠️ {name.upper()} резко изменилась в цене (chance: {round(trend_score, 2)}%)!")
             await change_trend_score(name, 0)
         elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
             random_percent = round(await secure_uniform(min_growth, max_growth), 4)
@@ -277,8 +295,8 @@ async def change_coin(name: str, bot: Bot) -> None:
         new_price = round(coin_info['cost'] * (1 + random_percent), 4)
         new_diff_percent = round(random_percent * 100, 4)
         await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
-    except Exception:
-        await send_for_admins("❌ Произошла ошибка во время изменения цены")
+    except Exception as e:
+        await send_for_admins(bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}")
 
 
 async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:

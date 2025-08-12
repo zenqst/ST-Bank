@@ -15,4 +15,5 @@ class BroadcastText(StatesGroup):
 
 class AdminPanelId(StatesGroup):
     user_id = State()
-    msg_id = State()
+    coin = State()
+    amount = State()

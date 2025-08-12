@@ -148,3 +148,15 @@ admins_return_buttons = InlineKeyboardMarkup(
         ],
     ]
 )
+
+admin_currency_buttons = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="ST", callback_data=AdminCallback(action=Currencies.ST).pack()),
+            InlineKeyboardButton(text="V", callback_data=AdminCallback(action=Currencies.V).pack())
+        ],
+        [
+            InlineKeyboardButton(text="🔙 Вернуться в меню", callback_data=ReturnCallback(prev_step=Steps.ADMIN).pack())
+        ],
+    ]
+)
