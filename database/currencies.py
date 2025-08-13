@@ -13,6 +13,7 @@ from database.core import db
 from database.stats import StatsManager
 from database.user import get_profile
 from database.utils import get_price
+from keyboards.builders import create_box_button
 from keyboards.inline import (
     ActionCallback,
     CurrencyCallback,
@@ -71,6 +72,32 @@ async def edit_currencies_handler(state: FSMContext, callback_data: ActionCallba
         "<b>V</b> — валюта, которая уже является более реалистичной. В ней цена может в любой момент обвалиться почти в 0, а может, и вырасти на тысячи рублей."
     )
     await call.message.edit_text(text, reply_markup=choose_currency_buttons)
+
+
+async def edit_boxes_handler(message: Message | CallbackQuery) -> None:
+    if message.from_user is None:
+        return
+    
+    profile = await get_profile(message.from_user.id)
+    inline_kb = await create_box_button(amount=None, box_balance=profile['box'])
+
+    text = (
+        "Меню взаимодействия с Боксами\n\n"
+        "<b>Краткая сводка:</b>\n"
+        "Открытие Боксов — процесс, при котором вы тратите свои BOX, а взамен получаете предметы разных редкостей. Можно выбрать количество Боксов для открытия — от 1 до 10. Существует 10% шанс на то, что Бокс будет сохранён.\n"
+        "Покупка Боксов — обычная покупка валюты BOX, но при этом цена всегда статична (может меняться лишь только при обновлениях).\n\n"
+        f"<b>Баланс BOX:</b> {profile['box']} BOX\n\n"
+        "<i>Помните, что все предметы вымышлены, совпадения случайны.</i>"
+    )
+
+    if isinstance(message, Message):
+        await message.answer(text, reply_markup=inline_kb)
+    elif isinstance(message, CallbackQuery):
+        if message.message is not None and isinstance(message.message, Message):
+            await message.message.edit_text(text, reply_markup=inline_kb)
+            await message.answer()
+        else:
+            await message.answer(text, reply_markup=inline_kb)
 
 
 async def build_amount_prompt(user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
