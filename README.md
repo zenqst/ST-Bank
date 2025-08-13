@@ -8,6 +8,7 @@
 [![Repo Size](https://img.shields.io/github/repo-size/zenqst/ST-Bank.svg)](https://github.com/zenqst/ST-Bank)
 [![Issues](https://img.shields.io/github/issues/zenqst/ST-Bank.svg)](https://github.com/zenqst/ST-Bank/issues)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
+[![Telegram](https://img.shields.io/badge/telegram-%40ST__Bank__bot-blue)](https://t.me/ST_Bank_bot)
 
 ---
 
