@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     github_token: SecretStr
     github_repo: SecretStr
     github_ref: SecretStr
+    server_ip: SecretStr
+    server_username: SecretStr
+    server_password: SecretStr
 
     model_config: SettingsConfigDict = SettingsConfigDict(  # type: ignore[misc]
         env_file=".env",

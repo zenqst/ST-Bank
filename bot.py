@@ -9,6 +9,7 @@ from callbacks import admins, common, returns, trade
 from config_reader import settings
 from database.core import db
 from database.currencies import change_all_coins
+from database.messages import send_for_admins
 from handlers import commands, messages
 from keep_alive import keep_alive
 from middlewares.antiflood import AntifloodMiddleware
@@ -20,6 +21,16 @@ keep_alive()
 async def scheduled_task(bot: Bot):
     while True:
         await change_all_coins(bot)
+
+
+async def on_startup(bot: Bot):
+    logging.info("Бот запущен")
+    await send_for_admins(bot, "🟢 Бот запущен")
+
+
+async def on_shutdown(bot: Bot):
+    logging.info("Бот остановлен")
+    await send_for_admins(bot, "🔴 Бот остановлен")
 
 
 async def main():
@@ -40,6 +51,9 @@ async def main():
         trade.router,
         common.router
     )
+
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
     scheduled_task_task = asyncio.create_task(scheduled_task(bot))
 

@@ -81,11 +81,12 @@ async def game(message: Message):
     msg = await message.answer_dice(emoji="🎰")
     value = msg.dice.value
     balance = await check_casino_balance(user_id)
+    result = value - 30
 
-    balance_now = balance['casino_pts'] + value - 30
+    balance_now = balance['casino_pts'] + result
     await db.update_data("users", {"casino_pts": balance_now}, {"id": user_id})
 
     res_msg = await msg.reply("⏳ <b>Обработка результата...</b>")
     await sleep(2.5)
 
-    await res_msg.edit_text(f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now}")
+    await res_msg.edit_text(f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now} <i>[{'+' if result > 0 else ''}{result}]</i>")

@@ -81,14 +81,14 @@ async def build_amount_prompt(user_id: int, action: CoinActions, currency: Curre
     )
     price = await get_price(currency)
     diff = f"<i>({price['diff']})</i>" if include_diff else ""
-    max_rounded = math.floor(balance / price['cost'] * 100) / 100
+    max_rounded = math.floor(balance / price['cost'])
     text = (
         f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n"
         f"<b>Текущий баланс:</b> {round(balance, 2)} {balance_label}\n"
         f"<b>Текущая цена:</b> ~{price['cost']} RUB {diff}\n"
     )
     if action == CoinActions.BUY:
-        text += f"<b>Максимально возможное кол-во:</b> {max_rounded} {currency.upper()}"
+        text += f"<b>Максимально возможное кол-во:</b> <code>{max_rounded}</code> {currency.upper()}"
     return text
 
 
