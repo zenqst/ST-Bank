@@ -275,6 +275,29 @@ async def secure_uniform(a: float, b: float) -> float:
     return a + rand
 
 
+async def is_positive(n: float) -> bool:
+    return n > 0
+
+
+async def reached_half_of_limit(new_diff_percent: float, *, max_growth: float = None, max_fall: float = None) -> bool:
+    """
+    :param new_diff_percent: Изменение в процентах (например, 34.6819 или -2.3782).
+    :param max_growth / max_fall: Доли (например, 0.40 = 40%).
+    :return: True, если величина изменения (по модулю для падения) >= 50% от соответствующего лимита.
+    """
+    if new_diff_percent == 0:
+        return False
+
+    if await is_positive(new_diff_percent):
+        threshold = 0.5 * max_growth * 100
+        value = new_diff_percent
+    else:
+        threshold = 0.5 * max_fall * 100
+        value = abs(new_diff_percent)
+
+    return value >= threshold
+
+
 async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     """
     Функция, которая меняет цену валюты
@@ -283,7 +306,7 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     :param price: Цена (необходимо указывать, когда меняем цену вручную)
     :return: None
     """
-    from database.messages import send_for_admins
+    from database.messages import send_broadcast_message, send_for_admins
 
     coins_map = {'st': st, 'v': v}
 
@@ -305,13 +328,13 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
 
     try:
         if price is not None:
-            await db.update_data("coins", {"cost": price, "diff": ((price - coin_info['cost']) / coin_info['cost']) * 100}, {"name": name})
+            random_percent = ((price - coin_info['cost']) / coin_info['cost']) * 100
+            await db.update_data("coins", {"cost": price, "diff": random_percent}, {"name": name})
             await change_trend_score(name, 0)
             await send_for_admins(bot, f"⚠️ {name.upper()} была вручную изменена администратором.\n\nТекущая цена: {price}")
             return
         if roll <= chance:
             random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
-            await send_for_admins(bot, f"⚠️ {name.upper()} резко изменилась в цене (chance: {round(trend_score, 2)}%)!")
             await change_trend_score(name, 0)
         elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
             random_percent = round(await secure_uniform(min_growth, max_growth), 4)
@@ -324,6 +347,12 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
         await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
     except Exception as e:
         await send_for_admins(bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}")
+    
+    text = {True: "Резкий рост", False: "Резкое падение"}[await is_positive(new_diff_percent)]
+    is_limit_reached = await reached_half_of_limit(new_diff_percent, max_growth=max_growth, max_fall=max_fall)
+
+    if is_limit_reached:
+        await send_broadcast_message(f"🔔 <b>{text}</b>!\n\n<b>{name.upper()}</b> резко изменилась в цене c <b>{coin_info['cost']} RUB</b> до <b>{new_price} RUB</b> <i>({new_diff_percent}%)</i>", bot, author_id=None)
 
 
 async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:

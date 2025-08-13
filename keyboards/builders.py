@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from config_reader import config
+from database.user import get_profile
 from keyboards.inline import BoxCallback
 from states.enums import CoinActions
 
@@ -39,19 +40,6 @@ async def create_box_button(*, amount: int | None, box_balance: int) -> InlineKe
 
     return builder.as_markup()
 
-# main = ReplyKeyboardMarkup(
-#     keyboard=[
-#         [KeyboardButton(text="📊 Торговать"),
-#          KeyboardButton(text="📦 Открыть бокс"),],
-#         # [KeyboardButton(text="💰 Донаты [WIP]")],
-#         [KeyboardButton(text="📋 Профиль"),]
-#     ],
-#     resize_keyboard=True,
-#     one_time_keyboard=False,
-#     input_field_placeholder="Выберите действие из меню",
-#     selective=True
-# )
-
 
 async def create_main_buttons(user_id: int) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
@@ -67,3 +55,25 @@ async def create_main_buttons(user_id: int) -> ReplyKeyboardMarkup:
         builder.adjust(2, 1, 1, 1)
 
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=False, input_field_placeholder="Выберите действие из меню", selective=True)
+
+
+async def create_profile_buttons(user_id) -> InlineKeyboardMarkup | None:
+    builder = InlineKeyboardBuilder()
+    user = await get_profile(user_id)
+
+    if not user:
+        return None
+    
+    builder.button(text="📊 Статистика аккаунта", callback_data='stats')
+    builder.button(text="📜 Список предметов", callback_data='items')
+
+    if user.get("notify") is True:
+        builder.button(text="🔕 Отключить уведомления", callback_data="notify_toggle")
+    else:
+        builder.button(text="🔔 Включить уведомления", callback_data="notify_toggle")
+    
+    builder.button(text="💸 Стать банкротом", callback_data="bankrupt")
+    builder.button(text="📥 Связь с разработчиком", url="tg://resolve?domain=zenqst")
+    builder.adjust(2, 1, 1, 1)
+    
+    return builder.as_markup()

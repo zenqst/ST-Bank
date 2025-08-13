@@ -1,14 +1,14 @@
 
+from asyncio import sleep
+
 from aiogram import F, Router
 from aiogram.types import Message
 
-from asyncio import sleep
-from random import uniform
 from database.core import db
 from database.currencies import edit_boxes_handler
 from database.messages import send_admin_panel_message, send_prices_msg, send_profile
-from database.user import check_casino_balance, get_profile, register
-from keyboards.builders import create_box_button, create_main_buttons
+from database.user import check_casino_balance, register
+from keyboards.builders import create_main_buttons
 from states.enums import UserStatus
 
 router = Router()

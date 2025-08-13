@@ -5,6 +5,8 @@ from aiogram.types import CallbackQuery
 from database.core import db
 from database.loot import show_items
 from database.stats import StatsManager
+from database.user import toggle_notify
+from keyboards.builders import create_profile_buttons
 from keyboards.inline import bankrupt_buttons
 
 router = Router()
@@ -54,3 +56,8 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
             "Процедура завершилась, ваш аккаунт был удалён из базы ST Bank в связи с полный обнулением. Зарегистрируйтесь заново через /start"
         )
         await call.message.answer(text)
+
+    elif call.data == "notify_toggle":
+        await bot.answer_callback_query(call.id)
+        await toggle_notify(user_id)
+        await call.message.edit_reply_markup(reply_markup=await create_profile_buttons(user_id))

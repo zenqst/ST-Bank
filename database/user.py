@@ -41,3 +41,9 @@ async def check_profile(id: int) -> UserStatus:
         return UserStatus.ERROR
 
 
+async def toggle_notify(user_id: int) -> None:
+    data = await db.select_data("users", "notify", {"id": user_id})
+    if data.get("notify") is True:
+        await db.update_data("users", {"notify": False}, {"id": user_id})
+    else:
+        await db.update_data("users", {"notify": True}, {"id": user_id})

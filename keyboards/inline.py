@@ -23,22 +23,7 @@ class ReturnCallback(CallbackData, prefix="return"):
 
 class AdminCallback(CallbackData, prefix="adm"):
     action: str
-
-
-profile_buttons = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📊 Статистика аккаунта", callback_data='stats'),
-            InlineKeyboardButton(text="📜 Список предметов", callback_data='items')
-        ],
-        [
-            InlineKeyboardButton(text="💸 Стать банкротом", callback_data="bankrupt")
-        ],
-        [
-            InlineKeyboardButton(text="📥 Написать разработчику", url="tg://resolve?domain=zenqst")
-        ]
-    ]
-)
+    
 
 bankrupt_buttons = InlineKeyboardMarkup(
     inline_keyboard=[

@@ -1,6 +1,7 @@
-import asyncio, asyncssh, sys
-from dotenv import load_dotenv
 import os
+
+import asyncssh
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -9,7 +10,7 @@ SERVER_USERNAME = os.getenv("SERVER_USERNAME")
 SERVER_PASSWORD = os.getenv("SERVER_PASSWORD")
 
 
-class ServerManager():
+class ServerManager:
     
     async def run_command(self, command: str) -> str:
         async with asyncssh.connect(

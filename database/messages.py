@@ -14,7 +14,8 @@ from database.core import db
 from database.currencies import get_price
 from database.user import get_profile
 from database.utils import format_number, send_table
-from keyboards.inline import action_buttons, admin_buttons, admins_return_buttons, profile_buttons
+from keyboards.builders import create_profile_buttons
+from keyboards.inline import action_buttons, admin_buttons, admins_return_buttons
 from states.types import TableProfile
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ async def send_single_message(bot: Bot, user_id: int, text: str) -> None:
         raise
 
 
-async def send_broadcast_message(state: FSMContext, bot: Bot, author_id: int) -> None:
+async def send_broadcast_message(sending_text: FSMContext | str, bot: Bot, author_id: int | None = None) -> None:
     try:
         all_users: list[dict[str, Any]] = await db.select_data("users", "*", fetch_all=True)
     except PostgresError:
@@ -73,8 +74,7 @@ async def send_broadcast_message(state: FSMContext, bot: Bot, author_id: int) ->
     successful = 0
     failed = 0
     tasks = []
-    data = await state.get_data()
-    text = data['sending_text']
+    text = sending_text if isinstance(sending_text, str) else await state.get_data().get("sending_text")
 
     for user in all_users:
         user_id = user.get("id")
@@ -82,7 +82,9 @@ async def send_broadcast_message(state: FSMContext, bot: Bot, author_id: int) ->
             logger.warning("Пропущен пользователь без ID: %s", user)
             failed += 1
             continue
-
+        
+        if isinstance(sending_text, str) and not user.get("notify"):
+            continue
         task = asyncio.create_task(send_single_message(bot, user_id, text))
         tasks.append(task)
 
@@ -95,13 +97,14 @@ async def send_broadcast_message(state: FSMContext, bot: Bot, author_id: int) ->
         else:
             successful += 1
 
-    try:
-        await bot.send_message(
-            author_id,
-            f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}"
-        )
-    except TelegramAPIError:
-        logger.exception("Не удалось отправить отчёт админу: %s")
+    if isinstance(sending_text, FSMContext) or not author_id:
+        try:
+            await bot.send_message(
+                author_id,
+                f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}"
+            )
+        except TelegramAPIError:
+            logger.exception("Не удалось отправить отчёт админу: %s")
 
     await state.clear()
 
@@ -131,6 +134,7 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
     table = await send_table(data_for_table, total_formatted_value)
     username_text = f"@{username}" if username else ""
     text = f"<b>📋 Профиль пользователя {username_text}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
+    profile_buttons = await create_profile_buttons(user_id)
     buttons = profile_buttons if not is_admin else admins_return_buttons
 
     if isinstance(message, Message):
