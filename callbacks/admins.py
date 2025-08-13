@@ -17,8 +17,10 @@ from keyboards.inline import (
 from states.enums import Currencies
 from states.fsm_states import AdminPanelId, BroadcastText
 from utils.control import shutdown
+from utils.server_manager import ServerManager
 
 router = Router()
+sm = ServerManager()
 
 
 @router.callback_query(AdminCallback.filter())
@@ -71,10 +73,22 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callba
         await call.message.edit_text("📝 В следующем сообщении отправьте текст для рассылки")
         await state.set_state(BroadcastText.sending_text)
 
+    elif callback_data.action == "get_logs":
+        await bot.answer_callback_query(call.id)
+        
+        logs = await sm.get_logs()
+        await call.message.edit_text("<pre>" + logs + "</pre>", reply_markup=admins_return_buttons)
+
+    elif callback_data.action == "restart_bot":
+        await bot.answer_callback_query(call.id)
+        
+        await call.message.edit_text("🔄 Бот перезапускается...")
+        create_task(sm.restart())
+
     elif callback_data.action == "stop_bot":
         await bot.answer_callback_query(call.id)
         
-        await call.message.edit_text("Бот выключается...")
+        await call.message.edit_text("🔴 Бот выключается...")
         create_task(shutdown())
 
 

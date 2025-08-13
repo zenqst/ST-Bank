@@ -89,4 +89,4 @@ async def game(message: Message):
     res_msg = await msg.reply("⏳ <b>Обработка результата...</b>")
     await sleep(2.5)
 
-    await res_msg.edit_text(f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now} <i>[{'+' if result > 0 else ''}{result}]</i>")
+    await res_msg.edit_text(f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now} <i>[{'+' if result > 0 else ''}{result}]</i>\n\n<i>В одном из следующих обновлений все поинты будут автоматически переведены в RUB</i>")
