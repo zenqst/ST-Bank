@@ -10,7 +10,7 @@ from states.enums import UserStatus
 
 class UserCheckMiddleware(BaseMiddleware):
     def __init__(self):
-        self.skip_commands = {"/start", "/shut"}  # commands for skip checking
+        self.skip_commands = {"/start", "/shut", "/help"}  # commands for skip checking
         self.skip_messages = {"💲 открыть брокерский счёт"}  # messages for skip checking
 
     async def __call__(self,

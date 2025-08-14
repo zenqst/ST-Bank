@@ -1,6 +1,6 @@
 import datetime
 from json import dumps, loads
-
+from typing import Any
 from database.core import db
 
 
@@ -41,7 +41,7 @@ class StatsManager:
 
     @staticmethod
     def _get_today(*, is_additional: bool = False) -> str:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(tz=datetime.UTC)
         if is_additional:
             return now.isoformat(timespec='seconds')
         else:
