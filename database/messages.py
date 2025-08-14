@@ -74,7 +74,11 @@ async def send_broadcast_message(sending_text: FSMContext | str, bot: Bot, autho
     successful = 0
     failed = 0
     tasks = []
-    text = sending_text if isinstance(sending_text, str) else await state.get_data().get("sending_text")
+    if isinstance(sending_text, str):
+        text = sending_text
+    else:
+        data = await sending_text.get_data()
+        text = data.get("sending_text")
 
     for user in all_users:
         user_id = user.get("id")
@@ -97,7 +101,7 @@ async def send_broadcast_message(sending_text: FSMContext | str, bot: Bot, autho
         else:
             successful += 1
 
-    if isinstance(sending_text, FSMContext) or not author_id:
+    if isinstance(sending_text, FSMContext) and author_id:
         try:
             await bot.send_message(
                 author_id,
@@ -105,8 +109,8 @@ async def send_broadcast_message(sending_text: FSMContext | str, bot: Bot, autho
             )
         except TelegramAPIError:
             logger.exception("Не удалось отправить отчёт админу: %s")
-
-    await state.clear()
+        
+        await sending_text.clear()
 
 
 async def send_profile(user_id: int, username: str | None, message: Message | CallbackQuery, is_admin: bool = False) -> None:

@@ -39,7 +39,7 @@ for var in required_env_vars:
         text = f"Env var {var} not installed"
         raise RuntimeError(text)
 
-ALLOWED_TABLES = {"users", "items", "coins"}
+ALLOWED_TABLES = {"users", "items", "coins", "price_history"}
 
 
 def safe_identifier(identifier: str) -> str:
@@ -206,6 +206,23 @@ class DB:
                 query = f"DELETE FROM {table} WHERE {where_clause}"
                 values = tuple(identifiers.values())
                 await con.execute(query, *values)
+        except Exception:
+            logging.exception(StatusMessages.REQUEST_ERROR)
+            raise
+    
+    async def execute(self, query: str, *args):
+        """
+        Функция для выполнения произвольного SQL-запроса
+
+        Пример:
+            await db.execute("DELETE FROM users WHERE id = $1", 123)
+
+        :param query: SQL-запрос
+        :param args: Параметры для SQL-запроса
+        """
+        try:
+            async with self.pool.acquire() as con:
+                return await con.execute(query, *args)
         except Exception:
             logging.exception(StatusMessages.REQUEST_ERROR)
             raise

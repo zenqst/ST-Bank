@@ -1,7 +1,9 @@
 import asyncio
+import datetime as dt
 import math
 import random as rn
 import secrets
+from json import dumps, loads
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
@@ -288,14 +290,43 @@ async def reached_half_of_limit(new_diff_percent: float, *, max_growth: float = 
     if new_diff_percent == 0:
         return False
 
+    limit = 0.85
+
     if await is_positive(new_diff_percent):
-        threshold = 0.5 * max_growth * 100
+        threshold = limit * max_growth * 100
         value = new_diff_percent
     else:
-        threshold = 0.5 * max_fall * 100
+        threshold = limit * max_fall * 100
         value = abs(new_diff_percent)
 
     return value >= threshold
+
+
+async def log_coin_change(name: str, price: float) -> None:
+    """
+    Функция для логирования изменения цены валюты
+
+    :param name: Название валюты
+    :param price: Цена
+    :return: None
+    """
+    len_limit = 5000
+
+    await db.insert_data("price_history", {"coin_name": name, "price": price, "ts": dt.datetime.now(dt.UTC)})
+
+    await db.execute(
+        """
+        DELETE FROM price_history
+        WHERE coin_name = $1
+        AND id NOT IN (
+            SELECT id FROM price_history
+            WHERE coin_name = $1
+            ORDER BY ts DESC
+            LIMIT $2
+        );
+        """,
+        name, len_limit
+    )
 
 
 async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
@@ -308,9 +339,8 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     """
     from database.messages import send_broadcast_message, send_for_admins
 
-    coins_map = {'st': st, 'v': v}
+    coin: Coin = {'st': st, 'v': v}[name]
 
-    coin: Coin = coins_map[name]
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
     min_price: float = coin.min_price
@@ -319,40 +349,48 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
 
     coin_info = await get_price(name, is_round=False)
 
-    trend_score: float = coin_info['trend_score']
-    score = abs(trend_score)
-
-    chance = min(100, score)
-
-    roll = secrets.randbelow(100) + 1
-
-    try:
-        if price is not None:
-            random_percent = ((price - coin_info['cost']) / coin_info['cost']) * 100
-            await db.update_data("coins", {"cost": price, "diff": random_percent}, {"name": name})
+    if price is not None:
+        try:
+            await db.update_data("coins", {"cost": price, "diff": ((price - coin_info['cost']) / coin_info['cost']) * 100}, {"name": name})
             await change_trend_score(name, 0)
             await send_for_admins(bot, f"⚠️ {name.upper()} была вручную изменена администратором.\n\nТекущая цена: {price}")
-            return
-        if roll <= chance:
-            random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
-            await change_trend_score(name, 0)
-        elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
-            random_percent = round(await secure_uniform(min_growth, max_growth), 4)
-            await change_trend_score(name, random_percent * 10)
-        else:
-            random_percent = -round(await secure_uniform(min_fall, max_fall), 4)
-            await change_trend_score(name, random_percent * 10)
-        new_price = round(coin_info['cost'] * (1 + random_percent), 4)
-        new_diff_percent = round(random_percent * 100, 4)
-        await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
-    except Exception as e:
-        await send_for_admins(bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}")
-    
-    text = {True: "Резкий рост", False: "Резкое падение"}[await is_positive(new_diff_percent)]
-    is_limit_reached = await reached_half_of_limit(new_diff_percent, max_growth=max_growth, max_fall=max_fall)
+            await log_coin_change(name, price)
+        except Exception as e:
+            await send_for_admins(bot, f"❌ Произошла ошибка во время ручного изменения цены {name.upper()}: {e}")
+        return
 
-    if is_limit_reached:
-        await send_broadcast_message(f"🔔 <b>{text}</b>!\n\n<b>{name.upper()}</b> резко изменилась в цене c <b>{coin_info['cost']} RUB</b> до <b>{new_price} RUB</b> <i>({new_diff_percent}%)</i>", bot, author_id=None)
+    trend_score: float = coin_info.get('trend_score')
+    score = abs(trend_score)
+    chance = min(100, score)
+    roll = secrets.randbelow(100) + 1
+
+    if roll <= chance:
+        random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
+        await change_trend_score(name, 0)
+    elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
+        random_percent = round(await secure_uniform(min_growth, max_growth), 4)
+        await change_trend_score(name, random_percent * 10)
+    else:
+        random_percent = -round(await secure_uniform(min_fall, max_fall), 4)
+        await change_trend_score(name, random_percent * 10)
+        
+    new_price = round(coin_info['cost'] * (1 + random_percent), 4)
+    new_diff_percent = round(random_percent * 100, 4)
+
+    try:
+        await log_coin_change(name, new_price)
+        await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
+        
+        if await reached_half_of_limit(new_diff_percent, max_growth=max_growth, max_fall=max_fall):
+            text = {True: "Резкий рост", False: "Резкое падение"}[await is_positive(new_diff_percent)]
+            await send_broadcast_message(
+                f"🔔 <b>{text}!</b>\n\n<b>{name.upper()}</b> резко изменилась в цене c <b>{coin_info['cost']} RUB</b> до <b>{new_price} RUB</b> <i>({new_diff_percent}%)</i>", 
+                bot, 
+                author_id=None
+            )
+    except Exception as e:
+        print(e)
+        await send_for_admins(bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}")
 
 
 async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:
@@ -381,4 +419,3 @@ async def change_all_coins(bot: Bot):
     await change_coin('st', bot)
     await change_coin('v', bot)
     await asyncio.sleep(random_time)
-

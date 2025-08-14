@@ -43,6 +43,9 @@ action_buttons = InlineKeyboardMarkup(
             InlineKeyboardButton(text="➖ Продать", callback_data=ActionCallback(action_type=CoinActions.SELL).pack())
         ],
         [
+            InlineKeyboardButton(text="📈 График валют", callback_data="curr_chart")
+        ],
+        [
             InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
         ],
     ]
