@@ -369,6 +369,29 @@ async def log_coin_change(name: str, price: float) -> None:
     )
 
 
+async def log_and_update_coin(
+    name: str, new_price: float, new_diff_percent: float, max_values: dict[str, float], bot: Bot
+):
+    from database.currencies import get_price
+    from database.messages import send_broadcast_message
+
+    coin_info = await get_price(name, is_round=False)
+    await log_coin_change(name, new_price)
+    await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
+
+    if await reached_half_of_limit(
+        new_diff_percent,
+        max_growth=max_values.get("max_growth"),
+        max_fall=max_values.get("max_fall"),
+    ):
+        text = {True: "Резкий рост", False: "Резкое падение"}[await is_positive(new_diff_percent)]
+        await send_broadcast_message(
+            f"🔔 <b>{text}!</b>\n\n<b>{name.upper()}</b> резко изменилась в цене c <b>{coin_info['cost']} RUB</b> до <b>{new_price} RUB</b> <i>({new_diff_percent}%)</i>",
+            bot,
+            author_id=None,
+        )
+
+
 async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     """
     Функция, которая меняет цену валюты
@@ -377,7 +400,7 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     :param price: Цена (необходимо указывать, когда меняем цену вручную)
     :return: None
     """
-    from database.messages import send_broadcast_message, send_for_admins
+    from database.messages import send_for_admins
 
     coin: Coin = {"st": st, "v": v}[name]
 
@@ -428,18 +451,13 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     new_diff_percent = round(random_percent * 100, 4)
 
     try:
-        await log_coin_change(name, new_price)
-        await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
-
-        if await reached_half_of_limit(new_diff_percent, max_growth=max_growth, max_fall=max_fall):
-            text = {True: "Резкий рост", False: "Резкое падение"}[
-                await is_positive(new_diff_percent)
-            ]
-            await send_broadcast_message(
-                f"🔔 <b>{text}!</b>\n\n<b>{name.upper()}</b> резко изменилась в цене c <b>{coin_info['cost']} RUB</b> до <b>{new_price} RUB</b> <i>({new_diff_percent}%)</i>",
-                bot,
-                author_id=None,
-            )
+        await log_and_update_coin(
+            name,
+            new_price,
+            new_diff_percent,
+            max_values={"max_growth": max_growth, "max_fall": max_fall},
+            bot=bot,
+        )
     except Exception as e:
         await send_for_admins(
             bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}"

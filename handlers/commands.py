@@ -1,8 +1,5 @@
-from random import uniform
-
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
-from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from database.currencies import calculate_precise_growth_chance
@@ -68,18 +65,6 @@ async def help_handler(message: Message):
         "<i>Разработчик: @zenqst</i>"
     )
     await message.answer(text)
-
-
-@router.message(Command("check"))
-async def check_handler(message: Message, state: FSMContext):
-    status = await check_profile(message.from_user.id)
-    data = await state.get_data()
-    random_nu = uniform(2.50, 5.00)
-
-    await message.answer(
-        f"Текущий статус: {status}\n\nДанные Interaction: {data}\n\nRandom: {random_nu}",
-        parse_mode=None,
-    )
 
 
 @router.message(Command("chance"))

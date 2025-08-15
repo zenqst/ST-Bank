@@ -30,8 +30,8 @@ async def get_profile(user_id: int) -> ProfileData:
     return data
 
 
-async def check_profile(id: int) -> UserStatus:
-    data = await db.select_data("users", "id", {"id": id})
+async def check_profile(user_id: int) -> UserStatus:
+    data = await db.select_data("users", "id", {"id": user_id})
     if data:
         return UserStatus.ALREADY_EXISTS
     elif not data:
