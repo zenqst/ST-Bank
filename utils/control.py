@@ -3,7 +3,7 @@ from logging import error
 from tomllib import load
 
 
-async def shutdown():   
+async def shutdown():
     error("Bot shutdowned by command")
     sys.exit(0)
 

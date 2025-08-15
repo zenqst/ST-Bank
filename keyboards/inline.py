@@ -23,38 +23,36 @@ class ReturnCallback(CallbackData, prefix="return"):
 
 class AdminCallback(CallbackData, prefix="adm"):
     action: str
-    
+
 
 bankrupt_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
-        [
-            InlineKeyboardButton(text="💔 Обанкротиться", callback_data='bankrupt_agree')
-        ],
-        [
-            InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
-        ],
+        [InlineKeyboardButton(text="💔 Обанкротиться", callback_data="bankrupt_agree")],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")],
     ]
 )
 
 action_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="➕ Купить", callback_data=ActionCallback(action_type=CoinActions.BUY).pack()),
-            InlineKeyboardButton(text="➖ Продать", callback_data=ActionCallback(action_type=CoinActions.SELL).pack())
+            InlineKeyboardButton(
+                text="➕ Купить", callback_data=ActionCallback(action_type=CoinActions.BUY).pack()
+            ),
+            InlineKeyboardButton(
+                text="➖ Продать", callback_data=ActionCallback(action_type=CoinActions.SELL).pack()
+            ),
         ],
-        [
-            InlineKeyboardButton(text="📈 График валют", callback_data="curr_chart")
-        ],
-        [
-            InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
-        ],
+        [InlineKeyboardButton(text="📈 График валют", callback_data="curr_chart")],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")],
     ]
 )
 
 chart_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.ACTIONS).pack())
+            InlineKeyboardButton(
+                text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.ACTIONS).pack()
+            )
         ],
     ]
 )
@@ -62,29 +60,31 @@ chart_buttons = InlineKeyboardMarkup(
 choose_currency_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="ST", callback_data=CurrencyCallback(currency=Currencies.ST).pack()),
-            InlineKeyboardButton(text="V", callback_data=CurrencyCallback(currency=Currencies.V).pack())
+            InlineKeyboardButton(
+                text="ST", callback_data=CurrencyCallback(currency=Currencies.ST).pack()
+            ),
+            InlineKeyboardButton(
+                text="V", callback_data=CurrencyCallback(currency=Currencies.V).pack()
+            ),
         ],
         [
-            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.ACTIONS).pack())
+            InlineKeyboardButton(
+                text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.ACTIONS).pack()
+            )
         ],
-        [
-            InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
-        ],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")],
     ]
 )
 
 update_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Получить текущую цену", callback_data="update")],
         [
-            InlineKeyboardButton(text="🔄 Получить текущую цену", callback_data="update")
+            InlineKeyboardButton(
+                text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.CURRENCIES).pack()
+            )
         ],
-        [
-            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.CURRENCIES).pack())
-        ],
-        [
-            InlineKeyboardButton(text='❌ Отменить', callback_data='cancel')
-        ],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")],
     ]
 )
 
@@ -93,54 +93,74 @@ agree_buttons = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(text="✅ Подтвердить", callback_data="agree"),
         ],
-        [
-            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
-        ]
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")],
     ]
 )
 
 items_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.PROFILE).pack())
+            InlineKeyboardButton(
+                text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.PROFILE).pack()
+            )
         ],
     ]
 )
 
 cancel_button = InlineKeyboardMarkup(
     inline_keyboard=[
-        [
-            InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")
-        ],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel")],
     ]
 )
 
 admin_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="👨‍👩‍👦‍👦 Получить список всех юзеров", callback_data=AdminCallback(action="get_all_users").pack()),
-            InlineKeyboardButton(text="👤 Получить профиль юзера", callback_data=AdminCallback(action="get_user").pack())
+            InlineKeyboardButton(
+                text="👨‍👩‍👦‍👦 Получить список всех юзеров",
+                callback_data=AdminCallback(action="get_all_users").pack(),
+            ),
+            InlineKeyboardButton(
+                text="👤 Получить профиль юзера",
+                callback_data=AdminCallback(action="get_user").pack(),
+            ),
         ],
         [
-            InlineKeyboardButton(text="💸 Измененить цену валюты", callback_data=AdminCallback(action="change_coin").pack())
+            InlineKeyboardButton(
+                text="💸 Измененить цену валюты",
+                callback_data=AdminCallback(action="change_coin").pack(),
+            )
         ],
         [
-            InlineKeyboardButton(text="📨 Сделать рассылку", callback_data=AdminCallback(action="start_mailing").pack())
+            InlineKeyboardButton(
+                text="📨 Сделать рассылку",
+                callback_data=AdminCallback(action="start_mailing").pack(),
+            )
         ],
         [
-            InlineKeyboardButton(text="📜 Получить логи", callback_data=AdminCallback(action="get_logs").pack())
+            InlineKeyboardButton(
+                text="📜 Получить логи", callback_data=AdminCallback(action="get_logs").pack()
+            )
         ],
         [
-            InlineKeyboardButton(text="🔄 Перезапустить бота", callback_data=AdminCallback(action="restart_bot").pack()),
-            InlineKeyboardButton(text="🔴 Выключить бота", callback_data=AdminCallback(action="stop_bot").pack())
-        ]
+            InlineKeyboardButton(
+                text="🔄 Перезапустить бота",
+                callback_data=AdminCallback(action="restart_bot").pack(),
+            ),
+            InlineKeyboardButton(
+                text="🔴 Выключить бота", callback_data=AdminCallback(action="stop_bot").pack()
+            ),
+        ],
     ]
 )
 
 admins_return_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="🔙 Вернуться в меню", callback_data=ReturnCallback(prev_step=Steps.ADMIN).pack())
+            InlineKeyboardButton(
+                text="🔙 Вернуться в меню",
+                callback_data=ReturnCallback(prev_step=Steps.ADMIN).pack(),
+            )
         ],
     ]
 )
@@ -148,11 +168,16 @@ admins_return_buttons = InlineKeyboardMarkup(
 admin_currency_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [
-            InlineKeyboardButton(text="ST", callback_data=AdminCallback(action=Currencies.ST).pack()),
-            InlineKeyboardButton(text="V", callback_data=AdminCallback(action=Currencies.V).pack())
+            InlineKeyboardButton(
+                text="ST", callback_data=AdminCallback(action=Currencies.ST).pack()
+            ),
+            InlineKeyboardButton(text="V", callback_data=AdminCallback(action=Currencies.V).pack()),
         ],
         [
-            InlineKeyboardButton(text="🔙 Вернуться в меню", callback_data=ReturnCallback(prev_step=Steps.ADMIN).pack())
+            InlineKeyboardButton(
+                text="🔙 Вернуться в меню",
+                callback_data=ReturnCallback(prev_step=Steps.ADMIN).pack(),
+            )
         ],
     ]
 )

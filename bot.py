@@ -34,7 +34,10 @@ async def on_shutdown(bot: Bot):
 
 
 async def main():
-    bot = Bot(settings.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(
+        settings.bot_token.get_secret_value(),
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     dp = Dispatcher()
 
     await db.connect()
@@ -44,12 +47,7 @@ async def main():
     dp.message.middleware(AntifloodMiddleware(1))
 
     dp.include_routers(
-        admins.router,
-        commands.router,
-        messages.router,
-        returns.router,
-        trade.router,
-        common.router
+        admins.router, commands.router, messages.router, returns.router, trade.router, common.router
     )
 
     dp.startup.register(on_startup)
@@ -64,8 +62,8 @@ async def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger('choreographer').setLevel(logging.CRITICAL)
-    logging.getLogger('kaleido').setLevel(logging.CRITICAL)
-    logging.getLogger('plotly').setLevel(logging.CRITICAL)
-    logging.getLogger('browser_proc').setLevel(logging.CRITICAL)
+    logging.getLogger("choreographer").setLevel(logging.CRITICAL)
+    logging.getLogger("kaleido").setLevel(logging.CRITICAL)
+    logging.getLogger("plotly").setLevel(logging.CRITICAL)
+    logging.getLogger("browser_proc").setLevel(logging.CRITICAL)
     asyncio.run(main())

@@ -1,4 +1,3 @@
-
 from asyncio import sleep
 
 from aiogram import F, Router
@@ -26,7 +25,10 @@ async def start_message(message: Message):
     main_kb = await create_main_buttons(user_id)
 
     if status == UserStatus.SUCCESS:
-        await message.reply("✅ <b>Поздравляю! Вы открыли брокерский счёт в ST Bank.</b>\n\nВ подарок вам было выдано <b>5000₽, 15ST, 3V и 3 📦</b>\n\n⚠️ Акции не являются настоящими. Все валюты исключительно виртуальные и не связаны с реальными денежными средствами.", reply_markup=main_kb)
+        await message.reply(
+            "✅ <b>Поздравляю! Вы открыли брокерский счёт в ST Bank.</b>\n\nВ подарок вам было выдано <b>5000₽, 15ST, 3V и 3 📦</b>\n\n⚠️ Акции не являются настоящими. Все валюты исключительно виртуальные и не связаны с реальными денежными средствами.",
+            reply_markup=main_kb,
+        )
     elif status == UserStatus.ALREADY_EXISTS:
         await message.reply("❌ <b>Вы уже были зарегистрированы ранее!</b>")
     else:
@@ -56,7 +58,7 @@ async def boxes(message: Message):
 
 @router.message(F.text.lower().in_(["🎛 админ-панель"]))
 async def admin_panel(message: Message):
-    user_id = message.from_user.id  
+    user_id = message.from_user.id
     username = message.from_user.username
 
     await send_admin_panel_message(user_id, username, message)
@@ -71,10 +73,12 @@ async def game(message: Message):
     balance = await check_casino_balance(user_id)
     result = value - 30
 
-    balance_now = balance['casino_pts'] + result
+    balance_now = balance["casino_pts"] + result
     await db.update_data("users", {"casino_pts": balance_now}, {"id": user_id})
 
     res_msg = await msg.reply("⏳ <b>Обработка результата...</b>")
     await sleep(2.5)
 
-    await res_msg.edit_text(f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now} <i>[{'+' if result > 0 else ''}{result}]</i>\n\n<i>В одном из следующих обновлений все поинты будут автоматически переведены в RUB</i>")
+    await res_msg.edit_text(
+        f"<b>Ваш результат: {value}</b>\n\nТекущий баланс: {balance_now} <i>[{'+' if result > 0 else ''}{result}]</i>\n\n<i>В одном из следующих обновлений все поинты будут автоматически переведены в RUB</i>"
+    )

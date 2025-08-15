@@ -11,14 +11,14 @@ class DummyDB:
     def __init__(self):
         self._data = {
             "stats": "{}",  # Инициализируем как пустую строку JSON
-            "trades": "{}"
+            "trades": "{}",
         }
 
-    async def select_data(self, table: str, column: str, filters: dict):
+    async def select_data(self, column: str):
         # Возвращаем данные как есть (строку JSON)
         return {column: self._data.get(column)}
 
-    async def update_data(self, table: str, data: dict, filters: dict):
+    async def update_data(self, data: dict):
         self._data.update(data)
 
 
@@ -161,15 +161,33 @@ async def test_multi_day_trading():
     await stats.load()
     # День 1: Покупка ST (2024-01-01)
     # Мокаем _get_today для этой операции
-    with patch.object(stats, '_get_today', side_effect=lambda is_additional=False: "2024-01-01" if not is_additional else "2024-01-01T12:00:00"):
+    with patch.object(
+        stats,
+        "_get_today",
+        side_effect=lambda is_additional=False: "2024-01-01"
+        if not is_additional
+        else "2024-01-01T12:00:00",
+    ):
         await stats.record_buy("ST", amount=10, price=100)
     # День 2: Покупка V (2024-01-02)
     # Мокаем _get_today для этой операции
-    with patch.object(stats, '_get_today', side_effect=lambda is_additional=False: "2024-01-02" if not is_additional else "2024-01-02T12:00:00"):
+    with patch.object(
+        stats,
+        "_get_today",
+        side_effect=lambda is_additional=False: "2024-01-02"
+        if not is_additional
+        else "2024-01-02T12:00:00",
+    ):
         await stats.record_buy("V", amount=5, price=200)
     # День 3: Продажа части ST (2024-01-03)
     # Мокаем _get_today для этой операции (включая внутренний вызов для profit_by_day)
-    with patch.object(stats, '_get_today', side_effect=lambda is_additional=False: "2024-01-03" if not is_additional else "2024-01-03T12:00:00"):
+    with patch.object(
+        stats,
+        "_get_today",
+        side_effect=lambda is_additional=False: "2024-01-03"
+        if not is_additional
+        else "2024-01-03T12:00:00",
+    ):
         await stats.record_sell("ST", amount=5, price=150)
     # Проверки
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 5
@@ -197,27 +215,27 @@ async def test_weekly_summary():
     # Эмуляция торговли в течение недели
     base_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     # Понедельник: покупка
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date
         mock_date.timezone.utc = UTC
         await stats.record_buy("ST", amount=10, price=100)  # Инвестиция 1000
     # Вторник: покупка
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=1)
         mock_date.timezone.utc = UTC
-        await stats.record_buy("V", amount=5, price=200)   # Инвестиция 1000
+        await stats.record_buy("V", amount=5, price=200)  # Инвестиция 1000
     # Среда: продажа с прибылью
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=2)
         mock_date.timezone.utc = UTC
         await stats.record_sell("ST", amount=5, price=150)  # Прибыль 250
     # Четверг: продажа с убытком
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=3)
         mock_date.timezone.utc = UTC
         await stats.record_sell("V", amount=2, price=150)  # Убыток -100
     # Пятница: еще покупка
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=4)
         mock_date.timezone.utc = UTC
         await stats.record_buy("ST", amount=5, price=120)  # Инвестиция 600
@@ -247,15 +265,15 @@ async def test_monthly_performance():
     start_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     # Разные дни месяца
     activities = [
-        (0, "buy", "ST", 5, 100),    # 1 января
-        (5, "buy", "V", 10, 50),     # 6 января
+        (0, "buy", "ST", 5, 100),  # 1 января
+        (5, "buy", "V", 10, 50),  # 6 января
         (10, "sell", "ST", 3, 120),  # 11 января (прибыль)
-        (15, "buy", "ST", 2, 90),    # 16 января
-        (20, "sell", "V", 5, 40),    # 21 января (убыток)
+        (15, "buy", "ST", 2, 90),  # 16 января
+        (20, "sell", "V", 5, 40),  # 21 января (убыток)
         (25, "sell", "ST", 4, 110),  # 26 января (прибыль)
     ]
     for day_offset, action, currency, amount, price in activities:
-        with patch('database.stats.datetime') as mock_date:
+        with patch("database.stats.datetime") as mock_date:
             mock_date.datetime.now.return_value = start_date + timedelta(days=day_offset)
             mock_date.timezone.utc = UTC
             if action == "buy":
@@ -268,7 +286,7 @@ async def test_monthly_performance():
     assert stats.stats["deal_count"]["sell"] == 3
     # Проверка финального портфеля
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 0  # Все продано
-    assert stats.stats["current_portfolio"]["V"]["amount"] == 5   # Осталось 5
+    assert stats.stats["current_portfolio"]["V"]["amount"] == 5  # Осталось 5
     await stats.save()
     print("\n📊 Итоговая статистика (Monthly Performance):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
@@ -359,10 +377,10 @@ async def test_favorite_currency_updates_correctly():
     await stats.load()
 
     await stats.record_buy("ST", amount=1, price=50000)  # invested = 50k
-    await stats.record_buy("V", amount=10, price=2000)   # invested = 20k
+    await stats.record_buy("V", amount=10, price=2000)  # invested = 20k
     assert stats.stats["favorite_currency"] == "ST"
 
-    await stats.record_buy("V", amount=20, price=2000)   # V invested = 60k
+    await stats.record_buy("V", amount=20, price=2000)  # V invested = 60k
     assert stats.stats["favorite_currency"] == "V"
 
 
@@ -397,7 +415,7 @@ async def test_avg_price_and_roi_precision():
     await stats.record_sell("V", amount=1.3333, price=150.9876)
     roi = stats.stats["roi"]["V"]
     assert isinstance(roi, float)
-    expected_roi = ((150.9876 - 123.4567) / 123.4567 * 100)
+    expected_roi = (150.9876 - 123.4567) / 123.4567 * 100
     assert abs(roi - expected_roi) < 0.05
 
 
@@ -408,7 +426,9 @@ async def test_last_active_changes_each_time():
     stats.db = db
     await stats.load()
 
-    with patch.object(stats, "_get_today", side_effect=["2025-01-01T10:00:00", "2025-01-02T11:00:00"]):
+    with patch.object(
+        stats, "_get_today", side_effect=["2025-01-01T10:00:00", "2025-01-02T11:00:00"]
+    ):
         await stats.record_buy("ST", amount=1, price=50000)
         first_time = stats.stats["last_active"]
         await stats.record_buy("V", amount=1, price=51000)

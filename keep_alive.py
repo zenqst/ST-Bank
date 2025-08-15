@@ -5,13 +5,13 @@ from flask import Flask
 app = Flask(__name__)
 
 
-@app.route('/')
+@app.route("/")
 def index():
     return {"status": "🤖 Fast"}
 
 
 def run():
-    app.run(host='127.0.0.1', port=8080)
+    app.run(host="127.0.0.1", port=8080)
 
 
 def keep_alive():

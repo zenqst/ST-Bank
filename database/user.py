@@ -1,4 +1,3 @@
-
 from database.core import db
 from database.stats import StatsManager
 from database.utils import get_price

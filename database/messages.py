@@ -1,6 +1,6 @@
 import asyncio
+import datetime as dt
 import logging
-from datetime import datetime
 from typing import Any
 
 from aiogram import Bot
@@ -61,7 +61,9 @@ async def send_single_message(bot: Bot, user_id: int, text: str) -> None:
         raise
 
 
-async def send_broadcast_message(sending_text: FSMContext | str, bot: Bot, author_id: int | None = None) -> None:
+async def send_broadcast_message(
+    sending_text: FSMContext | str, bot: Bot, author_id: int | None = None
+) -> None:
     try:
         all_users: list[dict[str, Any]] = await db.select_data("users", "*", fetch_all=True)
     except PostgresError:
@@ -86,7 +88,7 @@ async def send_broadcast_message(sending_text: FSMContext | str, bot: Bot, autho
             logger.warning("Пропущен пользователь без ID: %s", user)
             failed += 1
             continue
-        
+
         if isinstance(sending_text, str) and not user.get("notify"):
             continue
         task = asyncio.create_task(send_single_message(bot, user_id, text))
@@ -105,15 +107,17 @@ async def send_broadcast_message(sending_text: FSMContext | str, bot: Bot, autho
         try:
             await bot.send_message(
                 author_id,
-                f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}"
+                f"Рассылка завершена!\n\n✅ Успешно: {successful}\n❌ Не отправлено: {failed}",
             )
         except TelegramAPIError:
             logger.exception("Не удалось отправить отчёт админу: %s")
-        
+
         await sending_text.clear()
 
 
-async def send_profile(user_id: int, username: str | None, message: Message | CallbackQuery, is_admin: bool = False) -> None:
+async def send_profile(
+    user_id: int, username: str | None, message: Message | CallbackQuery, is_admin: bool = False
+) -> None:
     """
     Функция для отправки сообщения с профилем
 
@@ -134,17 +138,19 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
     total_formatted_value = await format_number(total_value)
 
     data_for_table: TableProfile = [
-        ('RUB', data.get("rubles"), '—'),
-        ('ST', data.get("st"), await format_number(st_value)),
-        ('V', data.get("v"), await format_number(v_value)),
-        ('BOX', data.get("box"), '—'),
-        ('CAS. PTS', data.get("casino_pts"), '—'),
+        ("RUB", data.get("rubles"), "—"),
+        ("ST", data.get("st"), await format_number(st_value)),
+        ("V", data.get("v"), await format_number(v_value)),
+        ("BOX", data.get("box"), "—"),
+        ("CAS. PTS", data.get("casino_pts"), "—"),
     ]
 
     table = await send_table(data_for_table, total_formatted_value)
 
     username_text = f"@{username}" if username else ""
-    text = f"<b>📋 Профиль пользователя {username_text}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
+    text = (
+        f"<b>📋 Профиль пользователя {username_text}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
+    )
     profile_buttons = await create_profile_buttons(user_id)
     buttons = profile_buttons if not is_admin else admins_return_buttons
 
@@ -158,13 +164,15 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
             await message.answer(text, reply_markup=buttons)
 
 
-async def send_admin_panel_message(user_id: int, username: str, message: CallbackQuery | Message) -> None:
+async def send_admin_panel_message(
+    user_id: int, username: str, message: CallbackQuery | Message
+) -> None:
     if user_id not in config.admin_ids:
         return
     text = (
         "<b>ST-Bank | Админ-панель</b>\n\n"
         f"Добро пожаловать, @{username}\n"
-        f"Текущее время: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n\n"
+        f"Текущее время: {dt.datetime.now(tz=dt.UTC).strftime('%d.%m.%Y %H:%M:%S')}\n\n"
         "Доступные команды на данный момент:\n"
         "1. Получение списка всех юзеров\n"
         "2. Получение профиля определённого юзера\n"

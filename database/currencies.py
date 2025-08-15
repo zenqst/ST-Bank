@@ -29,7 +29,14 @@ from states.types import CurrencyInfo, CurrencyKey
 from utils.graph import create_graph
 
 
-async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None, profit: float | None) -> str:
+async def create_action_msg(
+    currency: Currencies,
+    *,
+    balance: float | None,
+    currency_info: CurrencyInfo,
+    action_word: str | None,
+    profit: float | None,
+) -> str:
     actions = ["покупка", "продажа"]
     currency_str = currency.value.upper()
     if action_word is None:
@@ -39,11 +46,8 @@ async def create_action_msg(currency: Currencies, *, balance: float | None, curr
             f"<b>Требуется:</b> {currency_info['amount']} {currency_str}\n"
         )
     elif action_word.lower() in actions:
-        if currency_info['amount'] is None or currency_info['cost'] is None or balance is None:
-            text = (
-                "<b>❌ Неизвестная ошибка!</b>\n"
-                "Обратитесь к администратору!\n"
-            )
+        if currency_info["amount"] is None or currency_info["cost"] is None or balance is None:
+            text = "<b>❌ Неизвестная ошибка!</b>\nОбратитесь к администратору!\n"
         else:
             text = (
                 f"✅ <b>Успешная {action_word} {currency_info['amount']} {currency_str}!</b>\n\n"
@@ -54,15 +58,14 @@ async def create_action_msg(currency: Currencies, *, balance: float | None, curr
             if profit:
                 text += f"<b>Прибыль:</b> {round(profit, 2)} RUB\n"
     else:
-        text = (
-            "<b>❌ Неизвестная ошибка!</b>\n\n"
-            "Обратитесь к администратору!\n"
-        )
+        text = "<b>❌ Неизвестная ошибка!</b>\n\nОбратитесь к администратору!\n"
     text += "\n<i>Не забывайте, что все предметы и валюты являются вымышленными. Любые совпадения — случайны</i>"
     return text
 
 
-async def edit_currencies_handler(state: FSMContext, callback_data: ActionCallback | ReturnCallback, bot: Bot, call: CallbackQuery) -> None:
+async def edit_currencies_handler(
+    state: FSMContext, callback_data: ActionCallback | ReturnCallback, bot: Bot, call: CallbackQuery
+) -> None:
     await state.set_state(Interaction.type)
     if isinstance(callback_data, ActionCallback):
         await state.update_data(type=callback_data.action_type)
@@ -79,9 +82,9 @@ async def edit_currencies_handler(state: FSMContext, callback_data: ActionCallba
 async def edit_boxes_handler(message: Message | CallbackQuery) -> None:
     if message.from_user is None:
         return
-    
+
     profile = await get_profile(message.from_user.id)
-    inline_kb = await create_box_button(amount=None, box_balance=profile['box'])
+    inline_kb = await create_box_button(amount=None, box_balance=profile["box"])
 
     text = (
         "Меню взаимодействия с Боксами\n\n"
@@ -102,33 +105,41 @@ async def edit_boxes_handler(message: Message | CallbackQuery) -> None:
             await message.answer(text, reply_markup=inline_kb)
 
 
-async def build_amount_prompt(user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False) -> str:
+async def build_amount_prompt(
+    user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False
+) -> str:
     verb = {CoinActions.BUY: "приобрести", CoinActions.SELL: "продать"}[action]
     user_data = await get_profile(user_id)
     balance, balance_label = (
-        (user_data["rubles"], "RUB") if action == CoinActions.BUY else (user_data[currency], currency.upper())
+        (user_data["rubles"], "RUB")
+        if action == CoinActions.BUY
+        else (user_data[currency], currency.upper())
     )
     price = await get_price(currency)
     diff = f"<i>({price['diff']})</i>" if include_diff else ""
-    max_rounded = math.floor(balance / price['cost'])
+    max_rounded = math.floor(balance / price["cost"])
     text = (
         f"Введите количество {currency.upper()}, которое вы хотите <b>{verb}</b>\n\n"
         f"<b>Текущий баланс:</b> {round(balance, 2)} {balance_label}\n"
         f"<b>Текущая цена:</b> ~{price['cost']} RUB {diff}\n"
     )
     if action == CoinActions.BUY:
-        text += f"<b>Максимально возможное кол-во:</b> <code>{max_rounded}</code> {currency.upper()}"
+        text += (
+            f"<b>Максимально возможное кол-во:</b> <code>{max_rounded}</code> {currency.upper()}"
+        )
     return text
 
 
-async def edit_amount_handler(state: FSMContext, callback_data: CurrencyCallback, bot: Bot, call: CallbackQuery) -> None:
+async def edit_amount_handler(
+    state: FSMContext, callback_data: CurrencyCallback, bot: Bot, call: CallbackQuery
+) -> None:
     user_id = call.from_user.id
     interaction_data = await state.get_data()
     await state.set_state(Interaction.currency)
     await bot.answer_callback_query(call.id)
     currency = callback_data.currency
     await state.update_data(currency=currency)
-    text = await build_amount_prompt(user_id, interaction_data['type'], currency)
+    text = await build_amount_prompt(user_id, interaction_data["type"], currency)
     msg = await call.message.edit_text(text, reply_markup=update_buttons)
     await state.set_state(Interaction.msg_id)
     await state.update_data(msg_id=msg.message_id)
@@ -161,18 +172,18 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         return
     user_id = message.from_user.id
     data = await state.get_data()
-    currency: CurrencyKey = data['currency']
-    amount = float(data['amount'])
+    currency: CurrencyKey = data["currency"]
+    amount = float(data["amount"])
     price_data = await get_price(currency, is_round=False)
     user_data = await get_profile(user_id)
-    last_price = price_data['cost'] * amount
-    await bot.delete_message(chat_id=message.chat.id, message_id=data['msg_id'])
-    if data['type'] == CoinActions.BUY:
-        if last_price > user_data['rubles']:
+    last_price = price_data["cost"] * amount
+    await bot.delete_message(chat_id=message.chat.id, message_id=data["msg_id"])
+    if data["type"] == CoinActions.BUY:
+        if last_price > user_data["rubles"]:
             currency_info: CurrencyInfo = {
-                'balance': user_data['rubles'],
-                'cost': None,
-                'amount': last_price,
+                "balance": user_data["rubles"],
+                "cost": None,
+                "amount": last_price,
             }
             text = await create_action_msg(
                 Currencies.RUB,
@@ -184,18 +195,18 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
             await message.answer(text)
             return
         else:
-            remaining = user_data['rubles'] - last_price
+            remaining = user_data["rubles"] - last_price
             text = f"После покупки <b>{amount} {currency.upper()}</b> на балансе останется <b>~{remaining:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
-    elif data['type'] == CoinActions.SELL:
+    elif data["type"] == CoinActions.SELL:
         if amount > user_data[currency]:
             currency_info = {
-                'balance': user_data[currency],
-                'cost': None,
-                'amount': amount,
+                "balance": user_data[currency],
+                "cost": None,
+                "amount": amount,
             }
             text = await create_action_msg(
                 Currencies(currency),
-                balance=user_data['rubles'],
+                balance=user_data["rubles"],
                 currency_info=currency_info,
                 action_word=None,
                 profit=None,
@@ -205,7 +216,7 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
         else:
             text = f"После продажи <b>{amount} {currency.upper()}</b> на балансе прибавится <b>~{last_price:.2f} RUB</b>\nПодтвердите покупку кнопками ниже.\n\n<i>Напоминаем, что в любой момент транзакции цена может измениться, а значит, надо действовать как можно быстрее</i>"
     else:
-        await message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
+        await message.answer(f"<b>❌ Неизвестный тип транзакции [{data['type']}]</b>")
         return
     await state.set_state(Interaction.confirmation)
     msg = await message.answer(text, reply_markup=agree_buttons)
@@ -217,48 +228,72 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
         return
     user_id = call.from_user.id
     data = await state.get_data()
-    currency: CurrencyKey = data['currency']
-    amount = float(data['amount'])
+    currency: CurrencyKey = data["currency"]
+    amount = float(data["amount"])
     price_data = await get_price(currency, is_round=False)
     user_data = await get_profile(user_id)
-    last_price: float = price_data['cost'] * amount
+    last_price: float = price_data["cost"] * amount
     profit = None
     stats = StatsManager(user_id)
     await stats.load()
-    if data['type'] == CoinActions.BUY:
-        if last_price > user_data['rubles']:
+    if data["type"] == CoinActions.BUY:
+        if last_price > user_data["rubles"]:
             currency_info: CurrencyInfo = {
-                'balance': user_data['rubles'],
-                'cost': None,
-                'amount': last_price,
+                "balance": user_data["rubles"],
+                "cost": None,
+                "amount": last_price,
             }
-            text = await create_action_msg(Currencies.RUB, balance=None, currency_info=currency_info, action_word=None, profit=None)
+            text = await create_action_msg(
+                Currencies.RUB,
+                balance=None,
+                currency_info=currency_info,
+                action_word=None,
+                profit=None,
+            )
             await call.message.answer(text)
             return
-        balance_rubles = user_data['rubles'] - last_price
+        balance_rubles = user_data["rubles"] - last_price
         balance_currency = user_data[currency] + amount
         action_word = "покупка"
-        await stats.record_buy(currency, amount, price_data['cost'])
-    elif data['type'] == CoinActions.SELL:
+        await stats.record_buy(currency, amount, price_data["cost"])
+    elif data["type"] == CoinActions.SELL:
         if amount > user_data[currency]:
             currency_info = {
-                'balance': user_data[currency],
-                'cost': None,
-                'amount': amount,
+                "balance": user_data[currency],
+                "cost": None,
+                "amount": amount,
             }
-            text = await create_action_msg(Currencies(currency), balance=user_data['rubles'], currency_info=currency_info, action_word=None, profit=None)
+            text = await create_action_msg(
+                Currencies(currency),
+                balance=user_data["rubles"],
+                currency_info=currency_info,
+                action_word=None,
+                profit=None,
+            )
             await call.message.answer(text)
             return
-        balance_rubles = user_data['rubles'] + last_price
+        balance_rubles = user_data["rubles"] + last_price
         balance_currency = user_data[currency] - amount
         action_word = "продажа"
-        profit = await stats.record_sell(currency, amount, price_data['cost'])
+        profit = await stats.record_sell(currency, amount, price_data["cost"])
     else:
-        await call.message.answer(f'<b>❌ Неизвестный тип транзакции [{data["type"]}]</b>')
+        await call.message.answer(f"<b>❌ Неизвестный тип транзакции [{data['type']}]</b>")
         return
-    currency_info: CurrencyInfo = {'balance': balance_currency, 'cost': price_data['cost'], 'amount': amount}
-    text = await create_action_msg(Currencies(currency), balance=balance_rubles, currency_info=currency_info, action_word=action_word, profit=profit)
-    await db.update_data("users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id})
+    currency_info: CurrencyInfo = {
+        "balance": balance_currency,
+        "cost": price_data["cost"],
+        "amount": amount,
+    }
+    text = await create_action_msg(
+        Currencies(currency),
+        balance=balance_rubles,
+        currency_info=currency_info,
+        action_word=action_word,
+        profit=profit,
+    )
+    await db.update_data(
+        "users", {"rubles": balance_rubles, currency: balance_currency}, {"id": user_id}
+    )
     await stats.save()
     await state.clear()
     await call.message.answer(text)
@@ -266,13 +301,13 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
 async def change_trend_score(name: str, score: float) -> None:
     data = await get_price(name)
-    new_score: float = (data['trend_score'] + score) * 0.9
+    new_score: float = (data["trend_score"] + score) * 0.9
     new_score = max(min(new_score, 100), -100)
     await db.update_data("coins", {"trend_score": new_score}, {"name": name})
 
 
 async def secure_uniform(a: float, b: float) -> float:
-    scale = 10 ** 8
+    scale = 10**8
     rand = secrets.randbelow(int((b - a) * scale)) / scale
     return a + rand
 
@@ -281,7 +316,9 @@ async def is_positive(n: float) -> bool:
     return n > 0
 
 
-async def reached_half_of_limit(new_diff_percent: float, *, max_growth: float = None, max_fall: float = None) -> bool:
+async def reached_half_of_limit(
+    new_diff_percent: float, *, max_growth: float = None, max_fall: float = None
+) -> bool:
     """
     :param new_diff_percent: Изменение в процентах (например, 34.6819 или -2.3782).
     :param max_growth / max_fall: Доли (например, 0.40 = 40%).
@@ -312,7 +349,9 @@ async def log_coin_change(name: str, price: float) -> None:
     """
     len_limit = 5000
 
-    await db.insert_data("price_history", {"coin_name": name, "price": price, "ts": dt.datetime.now(dt.UTC)})
+    await db.insert_data(
+        "price_history", {"coin_name": name, "price": price, "ts": dt.datetime.now(dt.UTC)}
+    )
 
     await db.execute(
         """
@@ -325,7 +364,8 @@ async def log_coin_change(name: str, price: float) -> None:
             LIMIT $2
         );
         """,
-        name, len_limit
+        name,
+        len_limit,
     )
 
 
@@ -339,7 +379,7 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     """
     from database.messages import send_broadcast_message, send_for_admins
 
-    coin: Coin = {'st': st, 'v': v}[name]
+    coin: Coin = {"st": st, "v": v}[name]
 
     max_growth: float = coin.max_growth
     max_fall: float = coin.max_fall
@@ -351,16 +391,25 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
 
     if price is not None:
         try:
-            await db.update_data("coins", {"cost": price, "diff": ((price - coin_info['cost']) / coin_info['cost']) * 100}, {"name": name})
+            await db.update_data(
+                "coins",
+                {"cost": price, "diff": ((price - coin_info["cost"]) / coin_info["cost"]) * 100},
+                {"name": name},
+            )
             await change_trend_score(name, 0)
-            await send_for_admins(bot, f"⚠️ {name.upper()} была вручную изменена администратором.\n\nТекущая цена: {price}")
+            await send_for_admins(
+                bot,
+                f"⚠️ {name.upper()} была вручную изменена администратором.\n\nТекущая цена: {price}",
+            )
             await log_coin_change(name, price)
             await create_graph()
         except Exception as e:
-            await send_for_admins(bot, f"❌ Произошла ошибка во время ручного изменения цены {name.upper()}: {e}")
+            await send_for_admins(
+                bot, f"❌ Произошла ошибка во время ручного изменения цены {name.upper()}: {e}"
+            )
         return
 
-    trend_score: float = coin_info.get('trend_score')
+    trend_score: float = coin_info.get("trend_score")
     score = abs(trend_score)
     chance = min(100, score)
     roll = secrets.randbelow(100) + 1
@@ -368,35 +417,39 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
     if roll <= chance:
         random_percent = round(max_growth, 4) if trend_score > 0 else round(-max_fall, 4)
         await change_trend_score(name, 0)
-    elif coin_info['cost'] <= min_price or secrets.choice([True, False]):
+    elif coin_info["cost"] <= min_price or secrets.choice([True, False]):
         random_percent = round(await secure_uniform(min_growth, max_growth), 4)
         await change_trend_score(name, random_percent * 10)
     else:
         random_percent = -round(await secure_uniform(min_fall, max_fall), 4)
         await change_trend_score(name, random_percent * 10)
-        
-    new_price = round(coin_info['cost'] * (1 + random_percent), 4)
+
+    new_price = round(coin_info["cost"] * (1 + random_percent), 4)
     new_diff_percent = round(random_percent * 100, 4)
 
     try:
         await log_coin_change(name, new_price)
         await db.update_data("coins", {"cost": new_price, "diff": new_diff_percent}, {"name": name})
-        
+
         if await reached_half_of_limit(new_diff_percent, max_growth=max_growth, max_fall=max_fall):
-            text = {True: "Резкий рост", False: "Резкое падение"}[await is_positive(new_diff_percent)]
+            text = {True: "Резкий рост", False: "Резкое падение"}[
+                await is_positive(new_diff_percent)
+            ]
             await send_broadcast_message(
-                f"🔔 <b>{text}!</b>\n\n<b>{name.upper()}</b> резко изменилась в цене c <b>{coin_info['cost']} RUB</b> до <b>{new_price} RUB</b> <i>({new_diff_percent}%)</i>", 
-                bot, 
-                author_id=None
+                f"🔔 <b>{text}!</b>\n\n<b>{name.upper()}</b> резко изменилась в цене c <b>{coin_info['cost']} RUB</b> до <b>{new_price} RUB</b> <i>({new_diff_percent}%)</i>",
+                bot,
+                author_id=None,
             )
     except Exception as e:
-        await send_for_admins(bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}")
+        await send_for_admins(
+            bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}"
+        )
 
 
 async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:
     coin_info = await get_price(name, is_round=False)
-    trend_score: float = coin_info['trend_score']
-    coins_map = {'st': st, 'v': v}
+    trend_score: float = coin_info["trend_score"]
+    coins_map = {"st": st, "v": v}
     coin = coins_map[name]
     up_count = 0
     for _ in range(simulations):
@@ -405,7 +458,7 @@ async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -
         if roll <= chance:
             if trend_score > 0:
                 up_count += 1
-        elif coin_info['cost'] <= coin.min_price or secrets.choice([True, False]):
+        elif coin_info["cost"] <= coin.min_price or secrets.choice([True, False]):
             up_count += 1
     return (up_count / simulations) * 100
 
@@ -416,7 +469,7 @@ async def change_all_coins(bot: Bot):
     """
     random_time = rn.randint(150, 300)
 
-    await change_coin('st', bot)
-    await change_coin('v', bot)
+    await change_coin("st", bot)
+    await change_coin("v", bot)
     await create_graph()
     await asyncio.sleep(random_time)

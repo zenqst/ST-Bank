@@ -28,7 +28,10 @@ async def start(message: Message):
 
     version = await get_version_from_pyproject()
 
-    await message.answer(f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал в бот <b>ST Bank</b> (v{version})\n\nЗдесь тебе придётся торговать акциями, открывать боксы, фиксировать <s>убытки</s> прибыль", reply_markup=keyboard)
+    await message.answer(
+        f"Привет, <b>{message.from_user.first_name}</b>!\nТы попал в бот <b>ST Bank</b> (v{version})\n\nЗдесь тебе придётся торговать акциями, открывать боксы, фиксировать <s>убытки</s> прибыль",
+        reply_markup=keyboard,
+    )
 
 
 @router.message(Command("help"))
@@ -73,7 +76,10 @@ async def check_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     random_nu = uniform(2.50, 5.00)
 
-    await message.answer(f"Текущий статус: {status}\n\nДанные Interaction: {data}\n\nRandom: {random_nu}", parse_mode=None)
+    await message.answer(
+        f"Текущий статус: {status}\n\nДанные Interaction: {data}\n\nRandom: {random_nu}",
+        parse_mode=None,
+    )
 
 
 @router.message(Command("chance"))

@@ -11,14 +11,16 @@ router = Router()
 
 
 @router.callback_query(ReturnCallback.filter())
-async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext, callback_data: ReturnCallback):
+async def coins_handler(
+    call: CallbackQuery, bot: Bot, state: FSMContext, callback_data: ReturnCallback
+):
     user_id = call.from_user.id
     username = call.from_user.username
     data = await state.get_data()
 
     if call.message is None:
         return
-    
+
     if callback_data.prev_step == Steps.PROFILE:
         await bot.answer_callback_query(call.id)
         await send_profile(user_id, username, call)

@@ -9,21 +9,25 @@ async def create_graph() -> None:
     :return: None
     """
 
-    data_st = await db.select_data("price_history", ["ts", "price"], {"coin_name": "st"}, fetch_all=True)
-    data_v = await db.select_data("price_history", ["ts", "price"], {"coin_name": "v"}, fetch_all=True)
+    data_st = await db.select_data(
+        "price_history", ["ts", "price"], {"coin_name": "st"}, fetch_all=True
+    )
+    data_v = await db.select_data(
+        "price_history", ["ts", "price"], {"coin_name": "v"}, fetch_all=True
+    )
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=[item["ts"] for item in data_st],
-        y=[item["price"] for item in data_st],
-        name="ST"
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=[item["ts"] for item in data_st], y=[item["price"] for item in data_st], name="ST"
+        )
+    )
 
-    fig.add_trace(go.Scatter(
-        x=[item["ts"] for item in data_v],
-        y=[item["price"] for item in data_v],
-        name="V"
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=[item["ts"] for item in data_v], y=[item["price"] for item in data_v], name="V"
+        )
+    )
 
     fig.update_layout(
         title="График курсов валют",

@@ -36,7 +36,9 @@ async def format_number(num: float) -> str:
     return millify(num, precision=2)
 
 
-async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: str) -> pt.PrettyTable:
+async def send_table(
+    data: list[tuple[str, int | float | str, str]], total_sum: str
+) -> pt.PrettyTable:
     """
     Создаёт таблицу профиля пользователя для отображения.
     """
@@ -52,5 +54,3 @@ async def send_table(data: list[tuple[str, int | float | str, str]], total_sum: 
     table.add_row(["-" * 10, "-" * 10, "-" * 15])
     table.add_row(["TOTAL", "", f"~{total_sum} RUB"])
     return table
-
-

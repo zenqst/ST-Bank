@@ -13,19 +13,18 @@ SERVER_PASSWORD = os.getenv("SERVER_PASSWORD")
 class ServerManager:
     def __init__(self):
         pass
-    
-    async def run_command(self, command: str) -> str:
+
+    @staticmethod
+    async def run_command(command: str) -> str:
         async with asyncssh.connect(
-            SERVER_IP, 
-            username=SERVER_USERNAME, 
-            password=SERVER_PASSWORD
+            SERVER_IP, username=SERVER_USERNAME, password=SERVER_PASSWORD
         ) as conn:
             result = await conn.run(command, check=True)
             return result.stdout.decode("utf-8")
-    
+
     async def restart(self) -> None:
-        await self.run_command('sudo systemctl restart tgbot')
+        await self.run_command("sudo systemctl restart tgbot")
 
     async def get_logs(self) -> str:
-        logs = await self.run_command('sudo journalctl -u tgbot -n 20 --no-pager')
+        logs = await self.run_command("sudo journalctl -u tgbot -n 20 --no-pager")
         return logs

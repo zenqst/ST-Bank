@@ -1,16 +1,14 @@
 import datetime
 from json import dumps, loads
-from typing import Any
+
+from aiogram.types import CallbackQuery
+
 from database.core import db
+from keyboards.inline import items_buttons
 
 
 async def format_currency(val: float) -> str:
     return f"{val:,.2f}".replace(",", " ")
-
-
-from aiogram.types import CallbackQuery
-
-from keyboards.inline import items_buttons
 
 
 class StatsManager:
@@ -19,6 +17,7 @@ class StatsManager:
     При инициализации использовать stats.load()
     После всех операций использовать stats.save()
     """
+
     def __init__(self, user_id: int):
         self.user_id = user_id
         self.db = db
@@ -37,13 +36,13 @@ class StatsManager:
         self.stats = loads(row["stats"] or "{}")
 
         row = await self.db.select_data("users", "trades", {"id": self.user_id})
-        self.trades = loads(row['trades'] or "{}")
+        self.trades = loads(row["trades"] or "{}")
 
     @staticmethod
     def _get_today(*, is_additional: bool = False) -> str:
         now = datetime.datetime.now(tz=datetime.UTC)
         if is_additional:
-            return now.isoformat(timespec='seconds')
+            return now.isoformat(timespec="seconds")
         else:
             return now.date().isoformat()
 
@@ -63,7 +62,7 @@ class StatsManager:
             self.stats["current_portfolio"] = {}
         if currency not in self.stats["current_portfolio"]:
             self.stats["current_portfolio"][currency] = {"amount": 0, "avg_price": 0}
-        
+
         if "sell_history" not in self.stats:
             self.stats["sell_history"] = {}
         if currency not in self.stats["sell_history"]:
@@ -86,8 +85,9 @@ class StatsManager:
 
     async def record_buy(self, currency: str, amount: float, price: float):
         if amount <= 0 or price <= 0:
-            raise ValueError("Количество и цена должны быть положительными числами")
-        
+            msg = "Количество и цена должны быть положительными числами"
+            raise ValueError(msg)
+
         self._init_counters()
         self._init_currency_fields(currency)
 
@@ -102,7 +102,7 @@ class StatsManager:
 
         self.stats["current_portfolio"][currency] = {
             "amount": round(total_amount, 4),
-            "avg_price": round(avg_price, 2)
+            "avg_price": round(avg_price, 2),
         }
 
         self.stats["average_buy_price"][currency] = round(avg_price, 2)
@@ -116,7 +116,7 @@ class StatsManager:
 
         await self.update_favorite_currency()
         self.stats["last_active"] = self._get_today(is_additional=True)
-    
+
     async def record_lots(self, remaining: float, currency: str, price: float):
         self._init_counters()
         self._init_currency_fields(currency)
@@ -130,10 +130,10 @@ class StatsManager:
             if remaining <= 0:
                 new_lots.append(lot)
                 continue
-                
+
             lot_amount = lot["amount"]
             lot_price = lot["price"]
-            
+
             if lot_amount <= remaining:
                 profit += lot_amount * (price - lot_price)
                 invested_in_sold += lot_amount * lot_price
@@ -147,14 +147,16 @@ class StatsManager:
                 remaining = 0
 
         if remaining > 0:
-            raise ValueError("Недостаточно валюты для продажи")
+            msg = "Недостаточно валюты для продажи"
+            raise ValueError(msg)
 
         return profit, invested_in_sold, new_lots
 
     async def record_sell(self, currency: str, amount: float, price: float):
         if amount <= 0 or price <= 0:
-            raise ValueError("Количество и цена должны быть положительными числами")
-        
+            msg = "Количество и цена должны быть положительными числами"
+            raise ValueError(msg)
+
         self._init_counters()
         self._init_currency_fields(currency)
 
@@ -163,7 +165,8 @@ class StatsManager:
         self.stats["deal_count"]["sell"] += 1
 
         if currency not in self.trades:
-            raise ValueError(f"Нет такой валюты в портфеле ({currency})")
+            msg = f"Нет такой валюты в портфеле ({currency})"
+            raise ValueError(msg)
 
         profit, invested_in_sold, new_lots = await self.record_lots(amount, currency, price)
 
@@ -175,21 +178,18 @@ class StatsManager:
 
         self.stats["current_portfolio"][currency] = {
             "amount": round(total_amount, 4),
-            "avg_price": round(avg_price, 2)
+            "avg_price": round(avg_price, 2),
         }
 
         sell_history = self.stats["sell_history"][currency]
-        old_total_amount = sell_history["total_amount"]
-        old_total_value = sell_history["total_value"]
-        
-        new_total_amount = old_total_amount + amount
-        new_total_value = old_total_value + (amount * price)
-        
+        new_total_amount = sell_history["total_amount"] + amount
+        new_total_value = sell_history["total_value"] + (amount * price)
+
         self.stats["sell_history"][currency] = {
             "total_amount": new_total_amount,
-            "total_value": new_total_value
+            "total_value": new_total_value,
         }
-        
+
         self.stats["average_sell_price"][currency] = round(
             new_total_value / new_total_amount if new_total_amount > 0 else 0, 2
         )
@@ -214,9 +214,9 @@ class StatsManager:
             "price": price,
             "profit": profit,
             "roi": round(deal_roi, 2),
-            "date": self._get_today(is_additional=False)
+            "date": self._get_today(is_additional=False),
         }
-        
+
         if (current_best is None) or (profit > current_best.get("profit", 0)):
             self.stats["best_deal"] = deal_info
 
@@ -230,19 +230,23 @@ class StatsManager:
         self.stats["spam_attempts"] += 1
 
     async def save(self):
-        await self.db.update_data("users", {"stats": dumps(self.stats), "trades": dumps(self.trades)}, {"id": self.user_id})
+        await self.db.update_data(
+            "users",
+            {"stats": dumps(self.stats), "trades": dumps(self.trades)},
+            {"id": self.user_id},
+        )
 
     @staticmethod
     async def show_stats(username: str, user_id: int, call: CallbackQuery) -> None:
         stats = StatsManager(user_id)
         await stats.load()
 
-        deal_count = stats.stats.get('deal_count', {})
-        invested = stats.stats.get('invested', {})
-        sold = stats.stats.get('sold', {})
-        profit = stats.stats.get('profit', {})
-        roi = stats.stats.get('roi', {})
-        best_deal = stats.stats.get('best_deal', {})
+        deal_count = stats.stats.get("deal_count", {})
+        invested = stats.stats.get("invested", {})
+        sold = stats.stats.get("sold", {})
+        profit = stats.stats.get("profit", {})
+        roi = stats.stats.get("roi", {})
+        best_deal = stats.stats.get("best_deal", {})
 
         text = (
             f"📊\u003cb\u003eСтатистика пользователя @{username}\u003c/b\u003e (\u003ci\u003e{user_id}\u003c/i\u003e)\n\n"
@@ -264,7 +268,7 @@ class StatsManager:
             f"• V: {roi.get('v', 0)}%\n\n"
         )
 
-        if stats.stats.get('favorite_currency'):
+        if stats.stats.get("favorite_currency"):
             text += f"⭐️ \u003cu\u003eЛюбимая валюта:\u003c/u\u003e {stats.stats.get('favorite_currency', '').upper()}\n"
         if best_deal:
             text += f"🏆 \u003cu\u003eЛучшая сделка:\u003c/u\u003e {best_deal.get('currency', '').upper()} \u003ci\u003e({best_deal.get('roi', 0)}% ROI*)\u003c/i\u003e\n"
