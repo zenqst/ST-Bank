@@ -17,7 +17,7 @@ class ServerManager:
     @staticmethod
     async def run_command(command: str) -> str:
         async with asyncssh.connect(
-            SERVER_IP, username=SERVER_USERNAME, password=SERVER_PASSWORD
+            SERVER_IP, username=SERVER_USERNAME, password=SERVER_PASSWORD, known_hosts=None
         ) as conn:
             result = await conn.run(command, check=True)
             return result.stdout.decode("utf-8")
