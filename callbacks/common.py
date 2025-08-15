@@ -1,6 +1,7 @@
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile
+from aiogram.exceptions import TelegramBadRequest
 
 from database.core import db
 from database.loot import show_items
@@ -23,7 +24,12 @@ async def coins_handler(call: CallbackQuery, bot: Bot, state: FSMContext):
     if call.data == "cancel":
         await state.clear()
         await bot.answer_callback_query(call.id)
-        await call.message.edit_text('✅ <b>Действие отменено</b>')
+
+        try:
+            await call.message.edit_text('✅ <b>Действие отменено</b>')
+        except TelegramBadRequest:
+            await call.message.delete()
+            await call.message.answer('✅ <b>Действие отменено</b>')
     
     elif call.data == "items":
         await bot.answer_callback_query(call.id)

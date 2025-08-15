@@ -355,6 +355,7 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
             await change_trend_score(name, 0)
             await send_for_admins(bot, f"⚠️ {name.upper()} была вручную изменена администратором.\n\nТекущая цена: {price}")
             await log_coin_change(name, price)
+            await create_graph()
         except Exception as e:
             await send_for_admins(bot, f"❌ Произошла ошибка во время ручного изменения цены {name.upper()}: {e}")
         return

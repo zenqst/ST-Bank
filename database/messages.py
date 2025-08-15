@@ -122,20 +122,27 @@ async def send_profile(user_id: int, username: str | None, message: Message | Ca
     :param message: Message или CallbackQuery (зависит от расположения функции)
     :return: None
     """
+
     data: TableProfile = await get_profile(user_id)
+
     st_price = await get_price("st")
     v_price = await get_price("v")
-    st_value: float = st_price['cost'] * data['st']
-    v_value: float = v_price['cost'] * data['v']
-    total_value = data['rubles'] + st_value + v_value
+    st_value: float = st_price.get("cost") * data.get("st")
+    v_value: float = v_price.get("cost") * data.get("v")
+
+    total_value = data.get("rubles") + st_value + v_value
     total_formatted_value = await format_number(total_value)
+
     data_for_table: TableProfile = [
-        ('RUB', data['rubles'], '—'),
-        ('ST', data['st'], await format_number(st_value)),
-        ('V', data['v'], await format_number(v_value)),
-        ('BOX', data['box'], '—')
+        ('RUB', data.get("rubles"), '—'),
+        ('ST', data.get("st"), await format_number(st_value)),
+        ('V', data.get("v"), await format_number(v_value)),
+        ('BOX', data.get("box"), '—'),
+        ('CAS. PTS', data.get("casino_pts"), '—'),
     ]
+
     table = await send_table(data_for_table, total_formatted_value)
+
     username_text = f"@{username}" if username else ""
     text = f"<b>📋 Профиль пользователя {username_text}</b> (<i>{user_id}</i>)\n\n<pre>{table}</pre>"
     profile_buttons = await create_profile_buttons(user_id)
