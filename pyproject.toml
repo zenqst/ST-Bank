@@ -1,6 +1,6 @@
 [project]
 name = "st-bank"
-version = "1.0.0"
+version = "1.0.1"
 description = "Telegram-bot"
 authors = [
     {name = "zenqst",email = "zenqst@gmail.com"}
