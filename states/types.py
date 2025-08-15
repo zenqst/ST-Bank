@@ -41,4 +41,4 @@ class CurrencyInfo(TypedDict):
 
 
 TableProfile = list[tuple[str, int | float | str, str]]
-CurrencyKey = Literal['rubles', 'st', 'v', 'box']
+CurrencyKey = Literal["rubles", "st", "v", "box"]

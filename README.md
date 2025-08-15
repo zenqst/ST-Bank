@@ -8,6 +8,7 @@
 [![Repo Size](https://img.shields.io/github/repo-size/zenqst/ST-Bank.svg)](https://github.com/zenqst/ST-Bank)
 [![Issues](https://img.shields.io/github/issues/zenqst/ST-Bank.svg)](https://github.com/zenqst/ST-Bank/issues)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
+[![Telegram](https://img.shields.io/badge/telegram-%40ST__Bank__bot-blue)](https://t.me/ST_Bank_bot)
 
 ---
 
@@ -31,7 +32,7 @@
 - **Language:** Python 3.11+
 - **Database:** PostgreSQL (via `asyncpg`)
 - **Bot Framework:** `aiogram`
-- **Other Tools:** `python-dotenv`, `PrettyTable`, `aiohttp`, `pydentic`
+- **Other Tools:** `python-dotenv`, `PrettyTable`, `aiohttp`, `pydentic`, `uv`, `ruff`
 
 ---
 
@@ -47,7 +48,7 @@ cd ST-Bank
 ### 2. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+uv install
 ```
 
 ### 3. Configure environment variables
@@ -67,14 +68,15 @@ NOTIFY_CHAT_ID=YOUR_ID
 GITHUB_TOKEN=YOUR_TOKEN
 GITHUB_REPO=USERNAME/REPO
 GITHUB_REF=REF
+SERVER_IP=YOURIP
+SERVER_USERNAME=YOUR_USERNAME
+SERVER_PASSWORD=YOUR_PASSWORD
 ```
-
-> Use `.env.example` as a reference.
 
 ### 4. Run the bot
 
 ```bash
-python bot.py
+uv run bot.py
 ```
 
 ----------
@@ -88,16 +90,20 @@ ST-Bank/
 ├── bot.py
 ├── config_reader.py
 ├── keep_alive.py
-├── poerty.lock
+├── uv.lock
 ├── pyproject.toml
 ├── callbacks/
+│   ├── admins.py
 │   ├── common.py
 │   ├── returns.py
 │   └── trade.py
 ├── database/
 │   ├── core.py
-│   ├── queries.py
-│   └── stats.py
+│   ├── currencies.py
+│   ├── loot.py
+│   ├── stats.py
+│   ├── messages.py
+│   └── utils.py
 ├── handlers/
 │   ├── commands.py
 │   └── messages.py
@@ -108,13 +114,19 @@ ST-Bank/
 ├── middlewares/
 │   ├── antiflood.py
 │   └── check_user.py
+├── public/
+│   └── charts/
+│       └── graph_main.png
 ├── states/
 │   ├── enums.py
 │   ├── types.py
 │   └── fsm_states.py
 ├── tests/
 │   └── test_stats.py
-└── utils/
+├── utils/
+│   ├── control.py
+│   ├── graph.py
+└── └── server_manager.py
 ```
 
 ----------
@@ -122,7 +134,7 @@ ST-Bank/
 ## 📄 Documentation
 
 -   User commands via Telegram bot
--   Business logic in `data/datebase.py`
+-   Business logic in `database/`
 -   Coin model and price flow
 -   Integration setup for Google Sheets
 -   Environment configuration via `.env`

@@ -11,3 +11,9 @@ class Interaction(StatesGroup):
 
 class BroadcastText(StatesGroup):
     sending_text = State()
+
+
+class AdminPanelId(StatesGroup):
+    user_id = State()
+    coin = State()
+    amount = State()

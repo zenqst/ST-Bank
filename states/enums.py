@@ -15,19 +15,20 @@ class StatusMessages(Enum):
 
 
 class CoinActions(Enum):
-    BUY = 'buy'
-    SELL = 'sell'
-    OPEN = 'open'
+    BUY = "buy"
+    SELL = "sell"
+    OPEN = "open"
 
 
 class Currencies(Enum):
-    ST = 'st'
-    V = 'v'
-    BOX = 'box'
-    RUB = 'rub'
+    ST = "st"
+    V = "v"
+    BOX = "box"
+    RUB = "rub"
 
 
 class Steps(Enum):
-    PROFILE = 'profile'
-    ACTIONS = 'actions'
-    CURRENCIES = 'currencies'
+    PROFILE = "profile"
+    ACTIONS = "actions"
+    CURRENCIES = "currencies"
+    ADMIN = "admin"

@@ -9,6 +9,7 @@
         "core",
         "boxes",
         "stats",
-        "tests"
+        "tests",
+        "database"
     ]
 }

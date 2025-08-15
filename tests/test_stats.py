@@ -1,20 +1,26 @@
 import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
+
 import pytest
+
 from database.stats import StatsManager
+
 
 class DummyDB:
     def __init__(self):
         self._data = {
             "stats": "{}",  # Инициализируем как пустую строку JSON
-            "trades": "{}"
+            "trades": "{}",
         }
-    async def select_data(self, table: str, column: str, filters: dict):
+
+    async def select_data(self, column: str):
         # Возвращаем данные как есть (строку JSON)
         return {column: self._data.get(column)}
-    async def update_data(self, table: str, data: dict, filters: dict):
+
+    async def update_data(self, data: dict):
         self._data.update(data)
+
 
 @pytest.mark.asyncio
 async def test_buy_and_sell_flow():
@@ -31,11 +37,13 @@ async def test_buy_and_sell_flow():
     await stats.record_sell("ST", amount=5, price=150)
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 5
     assert stats.stats["average_sell_price"]["ST"] == 150.0
-    assert stats.stats["roi"]["ST"] == pytest.approx(50.0)
+    # ROI = (прибыль/общие_инвестиции)*100 = (250/1000)*100 = 25%
+    assert stats.stats["roi"]["ST"] == pytest.approx(25.0)
     await stats.save()
     # Вывод итогового JSON
     print("\n📊 Итоговая статистика (Buy/Sell):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
 
 @pytest.mark.asyncio
 async def test_multiple_buys_same_coin():
@@ -58,6 +66,7 @@ async def test_multiple_buys_same_coin():
     print("\n📊 Итоговая статистика (Multiple Buys):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
 
+
 @pytest.mark.asyncio
 async def test_sell_exact_amount():
     """Тест продажи точно того количества, что есть"""
@@ -73,11 +82,12 @@ async def test_sell_exact_amount():
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 0
     # Счетчик продаж должен увеличиться
     assert stats.stats["deal_count"]["sell"] == 1
-    # ROI должен быть 50%: (750-500)/500*100 = 50%
+    # ROI должен быть 50%: profit = 5*(150-100) = 250, invested = 5*100 = 500, roi = 250/500*100 = 50%
     assert stats.stats["roi"]["ST"] == pytest.approx(50.0)
     await stats.save()
     print("\n📊 Итоговая статистика (Sell Exact Amount):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
 
 @pytest.mark.asyncio
 async def test_multiple_coins():
@@ -94,18 +104,19 @@ async def test_multiple_coins():
     await stats.record_sell("V", amount=5, price=3200)
     # Проверка ST
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 1
-    # ROI для ST: profit = 1*(55000-50000) = 5000, invested = 1*50000 = 50000, roi = 5000/50000*100 = 10%
-    assert stats.stats["roi"]["ST"] == pytest.approx(10.0)
+    # ROI для ST: profit = 1*(55000-50000) = 5000, invested = 2*50000 = 100000, roi = 5000/100000*100 = 5%
+    assert stats.stats["roi"]["ST"] == pytest.approx(5.0)
     # Проверка V
     assert stats.stats["current_portfolio"]["V"]["amount"] == 5
-    # ROI для V: profit = 5*(3200-3000) = 1000, invested = 5*3000 = 15000, roi = 1000/15000*100 = 6.67%
-    assert stats.stats["roi"]["V"] == pytest.approx(6.67, abs=0.01)
+    # ROI для V: profit = 5*(3200-3000) = 1000, invested = 10*3000 = 30000, roi = 1000/30000*100 = 3.33%
+    assert stats.stats["roi"]["V"] == pytest.approx(3.33, abs=0.01)
     # Проверка общих счетчиков
     assert stats.stats["deal_count"]["buy"] == 2
     assert stats.stats["deal_count"]["sell"] == 2
     await stats.save()
     print("\n📊 Итоговая статистика (Multiple Coins):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
 
 @pytest.mark.asyncio
 async def test_initial_state():
@@ -120,6 +131,7 @@ async def test_initial_state():
     await stats.save()
     print("\n📊 Итоговая статистика (Initial State):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
 
 @pytest.mark.asyncio
 async def test_negative_roi():
@@ -139,6 +151,7 @@ async def test_negative_roi():
     print("\n📊 Итоговая статистика (Negative ROI):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
 
+
 @pytest.mark.asyncio
 async def test_multi_day_trading():
     """Тест торговли в течение нескольких дней"""
@@ -148,15 +161,33 @@ async def test_multi_day_trading():
     await stats.load()
     # День 1: Покупка ST (2024-01-01)
     # Мокаем _get_today для этой операции
-    with patch.object(stats, '_get_today', side_effect=lambda is_additional=False: "2024-01-01" if not is_additional else "2024-01-01T12:00:00"):
+    with patch.object(
+        stats,
+        "_get_today",
+        side_effect=lambda is_additional=False: "2024-01-01"
+        if not is_additional
+        else "2024-01-01T12:00:00",
+    ):
         await stats.record_buy("ST", amount=10, price=100)
     # День 2: Покупка V (2024-01-02)
     # Мокаем _get_today для этой операции
-    with patch.object(stats, '_get_today', side_effect=lambda is_additional=False: "2024-01-02" if not is_additional else "2024-01-02T12:00:00"):
+    with patch.object(
+        stats,
+        "_get_today",
+        side_effect=lambda is_additional=False: "2024-01-02"
+        if not is_additional
+        else "2024-01-02T12:00:00",
+    ):
         await stats.record_buy("V", amount=5, price=200)
     # День 3: Продажа части ST (2024-01-03)
     # Мокаем _get_today для этой операции (включая внутренний вызов для profit_by_day)
-    with patch.object(stats, '_get_today', side_effect=lambda is_additional=False: "2024-01-03" if not is_additional else "2024-01-03T12:00:00"):
+    with patch.object(
+        stats,
+        "_get_today",
+        side_effect=lambda is_additional=False: "2024-01-03"
+        if not is_additional
+        else "2024-01-03T12:00:00",
+    ):
         await stats.record_sell("ST", amount=5, price=150)
     # Проверки
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 5
@@ -167,11 +198,12 @@ async def test_multi_day_trading():
     assert "2024-01-03" in stats.stats["profit_by_day"]
     assert "2024-01-01" not in stats.stats["profit_by_day"]
     assert "2024-01-02" not in stats.stats["profit_by_day"]
-    # ROI для ST после продажи
-    assert stats.stats["roi"]["ST"] == pytest.approx(50.0)  # (750-500)/500*100
+    # ROI для ST после продажи: profit = 5*(150-100) = 250, invested = 10*100 = 1000, roi = 250/1000*100 = 25%
+    assert stats.stats["roi"]["ST"] == pytest.approx(25.0)
     await stats.save()
     print("\n📊 Итоговая статистика (Multi-Day Trading):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
 
 @pytest.mark.asyncio
 async def test_weekly_summary():
@@ -183,27 +215,27 @@ async def test_weekly_summary():
     # Эмуляция торговли в течение недели
     base_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     # Понедельник: покупка
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date
         mock_date.timezone.utc = UTC
         await stats.record_buy("ST", amount=10, price=100)  # Инвестиция 1000
     # Вторник: покупка
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=1)
         mock_date.timezone.utc = UTC
-        await stats.record_buy("V", amount=5, price=200)   # Инвестиция 1000
+        await stats.record_buy("V", amount=5, price=200)  # Инвестиция 1000
     # Среда: продажа с прибылью
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=2)
         mock_date.timezone.utc = UTC
         await stats.record_sell("ST", amount=5, price=150)  # Прибыль 250
     # Четверг: продажа с убытком
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=3)
         mock_date.timezone.utc = UTC
         await stats.record_sell("V", amount=2, price=150)  # Убыток -100
     # Пятница: еще покупка
-    with patch('database.stats.datetime') as mock_date:
+    with patch("database.stats.datetime") as mock_date:
         mock_date.datetime.now.return_value = base_date + timedelta(days=4)
         mock_date.timezone.utc = UTC
         await stats.record_buy("ST", amount=5, price=120)  # Инвестиция 600
@@ -221,6 +253,7 @@ async def test_weekly_summary():
     print("\n📊 Итоговая статистика (Weekly Summary):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
 
+
 @pytest.mark.asyncio
 async def test_monthly_performance():
     """Тест месячной производительности"""
@@ -232,15 +265,15 @@ async def test_monthly_performance():
     start_date = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     # Разные дни месяца
     activities = [
-        (0, "buy", "ST", 5, 100),    # 1 января
-        (5, "buy", "V", 10, 50),     # 6 января
+        (0, "buy", "ST", 5, 100),  # 1 января
+        (5, "buy", "V", 10, 50),  # 6 января
         (10, "sell", "ST", 3, 120),  # 11 января (прибыль)
-        (15, "buy", "ST", 2, 90),    # 16 января
-        (20, "sell", "V", 5, 40),    # 21 января (убыток)
+        (15, "buy", "ST", 2, 90),  # 16 января
+        (20, "sell", "V", 5, 40),  # 21 января (убыток)
         (25, "sell", "ST", 4, 110),  # 26 января (прибыль)
     ]
     for day_offset, action, currency, amount, price in activities:
-        with patch('database.stats.datetime') as mock_date:
+        with patch("database.stats.datetime") as mock_date:
             mock_date.datetime.now.return_value = start_date + timedelta(days=day_offset)
             mock_date.timezone.utc = UTC
             if action == "buy":
@@ -253,10 +286,11 @@ async def test_monthly_performance():
     assert stats.stats["deal_count"]["sell"] == 3
     # Проверка финального портфеля
     assert stats.stats["current_portfolio"]["ST"]["amount"] == 0  # Все продано
-    assert stats.stats["current_portfolio"]["V"]["amount"] == 5   # Осталось 5
+    assert stats.stats["current_portfolio"]["V"]["amount"] == 5  # Осталось 5
     await stats.save()
     print("\n📊 Итоговая статистика (Monthly Performance):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
 
 @pytest.mark.asyncio
 async def test_spam_attempt():
@@ -271,6 +305,7 @@ async def test_spam_attempt():
     await stats.save()
     print("\n📊 Итоговая статистика (Spam Attempt):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
 
 @pytest.mark.asyncio
 async def test_best_deal_by_roi():
@@ -309,3 +344,97 @@ async def test_best_deal_by_roi():
     await stats.save()
     print("\n📊 Итоговая статистика (Best Deal):")
     print(json.dumps(stats.stats, indent=2, ensure_ascii=False))
+
+
+@pytest.mark.asyncio
+async def test_sell_more_than_have_raises():
+    db = DummyDB()
+    stats = StatsManager(user_id=1)
+    stats.db = db
+    await stats.load()
+
+    await stats.record_buy("ST", amount=2, price=100)
+    with pytest.raises(ValueError, match="Недостаточно валюты для продажи"):
+        await stats.record_sell("ST", amount=5, price=200)
+
+
+@pytest.mark.asyncio
+async def test_sell_nonexistent_currency_raises():
+    db = DummyDB()
+    stats = StatsManager(user_id=1)
+    stats.db = db
+    await stats.load()
+
+    with pytest.raises(ValueError, match="Нет такой валюты в портфеле"):
+        await stats.record_sell("V", amount=1, price=1000)
+
+
+@pytest.mark.asyncio
+async def test_favorite_currency_updates_correctly():
+    db = DummyDB()
+    stats = StatsManager(user_id=1)
+    stats.db = db
+    await stats.load()
+
+    await stats.record_buy("ST", amount=1, price=50000)  # invested = 50k
+    await stats.record_buy("V", amount=10, price=2000)  # invested = 20k
+    assert stats.stats["favorite_currency"] == "ST"
+
+    await stats.record_buy("V", amount=20, price=2000)  # V invested = 60k
+    assert stats.stats["favorite_currency"] == "V"
+
+
+@pytest.mark.asyncio
+async def test_sell_fifo_lots():
+    db = DummyDB()
+    stats = StatsManager(user_id=1)
+    stats.db = db
+    await stats.load()
+
+    await stats.record_buy("ST", amount=2, price=100)  # Лот 1
+    await stats.record_buy("ST", amount=3, price=200)  # Лот 2
+    await stats.record_buy("ST", amount=5, price=300)  # Лот 3
+
+    profit = await stats.record_sell("ST", amount=6, price=400)
+    assert profit == pytest.approx(1300)
+    assert stats.stats["current_portfolio"]["ST"]["amount"] == 4
+    assert stats.trades["ST"][0]["price"] == 300
+
+
+@pytest.mark.asyncio
+async def test_avg_price_and_roi_precision():
+    db = DummyDB()
+    stats = StatsManager(user_id=1)
+    stats.db = db
+    await stats.load()
+
+    await stats.record_buy("V", amount=1.3333, price=123.4567)
+    assert stats.stats["current_portfolio"]["V"]["amount"] == pytest.approx(1.3333, abs=1e-4)
+    assert stats.stats["current_portfolio"]["V"]["avg_price"] == round(123.4567, 2)
+
+    await stats.record_sell("V", amount=1.3333, price=150.9876)
+    roi = stats.stats["roi"]["V"]
+    assert isinstance(roi, float)
+    expected_roi = (150.9876 - 123.4567) / 123.4567 * 100
+    assert abs(roi - expected_roi) < 0.05
+
+
+@pytest.mark.asyncio
+async def test_last_active_changes_each_time():
+    db = DummyDB()
+    stats = StatsManager(user_id=1)
+    stats.db = db
+    await stats.load()
+
+    with patch.object(
+        stats, "_get_today", side_effect=["2025-01-01T10:00:00", "2025-01-02T11:00:00"]
+    ):
+        await stats.record_buy("ST", amount=1, price=50000)
+        first_time = stats.stats["last_active"]
+        await stats.record_buy("V", amount=1, price=51000)
+        second_time = stats.stats["last_active"]
+
+    assert first_time != second_time
+    assert first_time == "2025-01-01T10:00:00"
+    assert second_time == "2025-01-02T11:00:00"
+    await stats.save()

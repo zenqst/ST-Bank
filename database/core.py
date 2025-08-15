@@ -39,7 +39,7 @@ for var in required_env_vars:
         text = f"Env var {var} not installed"
         raise RuntimeError(text)
 
-ALLOWED_TABLES = {"users", "items", "coins"}
+ALLOWED_TABLES = {"users", "items", "coins", "price_history"}
 
 
 def safe_identifier(identifier: str) -> str:
@@ -70,7 +70,7 @@ class DB:
             host=DB_HOST,
             port=DB_PORT,
             min_size=DB_POOL_MIN,
-            max_size=DB_POOL_MAX
+            max_size=DB_POOL_MAX,
         )
         logging.info("Successful connection to DB")
 
@@ -83,7 +83,9 @@ class DB:
             self.pool = None
             logging.info("The pool of connections is closed")
 
-    async def select_data(self, table: str, rows: str | list[str], identifiers: dict = None, fetch_all: bool = None):
+    async def select_data(
+        self, table: str, rows: str | list[str], identifiers: dict = None, fetch_all: bool = None
+    ):
         """
         Функция для получения одной или нескольких строк из бд
 
@@ -108,12 +110,14 @@ class DB:
             row_part = "*"
             fetch_all = True
         else:
-            row_part = ', '.join(safe_identifier(col) for col in rows)
+            row_part = ", ".join(safe_identifier(col) for col in rows)
 
         try:
             async with self.pool.acquire() as con:
                 if identifiers:
-                    where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(identifiers.keys()))
+                    where_clause = " AND ".join(
+                        f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(identifiers.keys())
+                    )
                     query = f"SELECT {row_part} FROM {table} WHERE {where_clause}"
                     values = tuple(identifiers.values())
                 else:
@@ -146,8 +150,8 @@ class DB:
 
         try:
             async with self.pool.acquire() as con:
-                columns = ', '.join(safe_identifier(k) for k in values)
-                placeholders = ', '.join(f"${i + 1}" for i in range(len(values)))
+                columns = ", ".join(safe_identifier(k) for k in values)
+                placeholders = ", ".join(f"${i + 1}" for i in range(len(values)))
                 query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
                 await con.execute(query, *values.values())
         except Exception:
@@ -174,8 +178,13 @@ class DB:
 
         try:
             async with self.pool.acquire() as con:
-                set_clause = ', '.join(f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(values.keys()))
-                where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i + 1 + len(values)}" for i, k in enumerate(identifiers.keys()))
+                set_clause = ", ".join(
+                    f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(values.keys())
+                )
+                where_clause = " AND ".join(
+                    f"{safe_identifier(k)} = ${i + 1 + len(values)}"
+                    for i, k in enumerate(identifiers.keys())
+                )
                 query = f"UPDATE {table} SET {set_clause} WHERE {where_clause}"
                 params = tuple(values.values()) + tuple(identifiers.values())
                 await con.execute(query, *params)
@@ -202,10 +211,29 @@ class DB:
 
         try:
             async with self.pool.acquire() as con:
-                where_clause = ' AND '.join(f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(identifiers.keys()))
+                where_clause = " AND ".join(
+                    f"{safe_identifier(k)} = ${i + 1}" for i, k in enumerate(identifiers.keys())
+                )
                 query = f"DELETE FROM {table} WHERE {where_clause}"
                 values = tuple(identifiers.values())
                 await con.execute(query, *values)
+        except Exception:
+            logging.exception(StatusMessages.REQUEST_ERROR)
+            raise
+
+    async def execute(self, query: str, *args):
+        """
+        Функция для выполнения произвольного SQL-запроса
+
+        Пример:
+            await db.execute("DELETE FROM users WHERE id = $1", 123)
+
+        :param query: SQL-запрос
+        :param args: Параметры для SQL-запроса
+        """
+        try:
+            async with self.pool.acquire() as con:
+                return await con.execute(query, *args)
         except Exception:
             logging.exception(StatusMessages.REQUEST_ERROR)
             raise

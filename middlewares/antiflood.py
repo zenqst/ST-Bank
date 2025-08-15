@@ -12,7 +12,7 @@ from database.stats import StatsManager
 class AntifloodMiddleware(BaseMiddleware):
     cache: TTLCache[str, bool]
     warned_users: TTLCache[int, bool]
-    
+
     def __init__(self, time_limit: int = 2, warn_cooldown: int = 10) -> None:
         self.cache = TTLCache(maxsize=10000, ttl=time_limit)
         self.warned_users = TTLCache(maxsize=10000, ttl=warn_cooldown)
@@ -21,7 +21,7 @@ class AntifloodMiddleware(BaseMiddleware):
         self,
         handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: dict[str, Any]
+        data: dict[str, Any],
     ) -> Any:
         throttling_key = get_flag(data, "throttling_key") or "antiflood"
 
@@ -35,13 +35,14 @@ class AntifloodMiddleware(BaseMiddleware):
 
         key = f"{throttling_key}:{user_id}"
 
-
         if key in self.cache:
             if user_id not in self.warned_users:
                 self.warned_users[user_id] = True
                 if hasattr(event, "answer"):
-                    await event.answer("😣 <b>Немного передохните, я уже устал...</b>\n\n<i>Сообщения принимаются с небольшим к/д</i>")
-            
+                    await event.answer(
+                        "😣 <b>Немного передохните, я уже устал...</b>\n\n<i>Сообщения принимаются с небольшим к/д</i>"
+                    )
+
             stats = StatsManager(user_id)
             await stats.load()
             await stats.add_spam_attempt()
