@@ -20,7 +20,7 @@ class ServerManager:
             SERVER_IP, username=SERVER_USERNAME, password=SERVER_PASSWORD, known_hosts=None
         ) as conn:
             result = await conn.run(command, check=True)
-            return result.stdout.decode("utf-8")
+            return result.stdout
 
     async def restart(self) -> None:
         await self.run_command("sudo systemctl restart tgbot")
