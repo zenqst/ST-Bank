@@ -3,7 +3,6 @@ import datetime as dt
 import math
 import random as rn
 import secrets
-from json import dumps, loads
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
@@ -27,6 +26,7 @@ from keyboards.inline import (
 from states.enums import CoinActions, Currencies
 from states.fsm_states import Interaction
 from states.types import CurrencyInfo, CurrencyKey
+from utils.graph import create_graph
 
 
 async def create_action_msg(currency: Currencies, *, balance: float | None, currency_info: CurrencyInfo, action_word: str | None, profit: float | None) -> str:
@@ -389,7 +389,6 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
                 author_id=None
             )
     except Exception as e:
-        print(e)
         await send_for_admins(bot, f"❌ Произошла ошибка во время изменения цены {name.upper()}: {e}")
 
 
@@ -412,10 +411,11 @@ async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -
 
 async def change_all_coins(bot: Bot):
     """
-    Простая функция, которая получает рандомное время от 2.5 до 5 минут, а потом обновляет валюты
+    Простая функция, которая получает рандомное время от 2.5 до 5 минут, а потом обновляет валюты и создаёт график
     """
     random_time = rn.randint(150, 300)
 
     await change_coin('st', bot)
     await change_coin('v', bot)
+    await create_graph()
     await asyncio.sleep(random_time)

@@ -114,6 +114,9 @@ ST-Bank/
 ├── middlewares/
 │   ├── antiflood.py
 │   └── check_user.py
+├── public/
+│   └── charts/
+│       └── graph_main.png
 ├── states/
 │   ├── enums.py
 │   ├── types.py
@@ -122,6 +125,7 @@ ST-Bank/
 │   └── test_stats.py
 ├── utils/
 │   ├── control.py
+│   ├── graph.py
 └── └── server_manager.py
 ```
 

@@ -51,6 +51,14 @@ action_buttons = InlineKeyboardMarkup(
     ]
 )
 
+chart_buttons = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🔙 Вернуться", callback_data=ReturnCallback(prev_step=Steps.ACTIONS).pack())
+        ],
+    ]
+)
+
 choose_currency_buttons = InlineKeyboardMarkup(
     inline_keyboard=[
         [

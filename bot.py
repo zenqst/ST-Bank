@@ -64,4 +64,8 @@ async def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger('choreographer').setLevel(logging.CRITICAL)
+    logging.getLogger('kaleido').setLevel(logging.CRITICAL)
+    logging.getLogger('plotly').setLevel(logging.CRITICAL)
+    logging.getLogger('browser_proc').setLevel(logging.CRITICAL)
     asyncio.run(main())
