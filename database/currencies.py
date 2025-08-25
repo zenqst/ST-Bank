@@ -37,6 +37,15 @@ async def create_action_msg(
     action_word: str | None,
     profit: float | None,
 ) -> str:
+    """
+    Функция для создания сообщения о транзакции
+    :param currency: Валюта
+    :param balance: Баланс
+    :param currency_info: Информация о валюте
+    :param action_word: Слово-действие
+    :param profit: Прибыль
+    :return: Строка с сообщением
+    """
     actions = ["покупка", "продажа"]
     currency_str = currency.value.upper()
     if action_word is None:
@@ -66,6 +75,14 @@ async def create_action_msg(
 async def edit_currencies_handler(
     state: FSMContext, callback_data: ActionCallback | ReturnCallback, bot: Bot, call: CallbackQuery
 ) -> None:
+    """
+    Функция для обработки взаимодействия с валютами
+    :param state: Состояние
+    :param callback_data: Данные callback
+    :param bot: Бот
+    :param call: Callback
+    :return: None
+    """
     await state.set_state(Interaction.type)
     if isinstance(callback_data, ActionCallback):
         await state.update_data(type=callback_data.action_type)
@@ -80,6 +97,11 @@ async def edit_currencies_handler(
 
 
 async def edit_boxes_handler(message: Message | CallbackQuery) -> None:
+    """
+    Функция для обработки взаимодействия с боксами
+    :param message: Сообщение
+    :return: None
+    """
     if message.from_user is None:
         return
 
@@ -108,6 +130,14 @@ async def edit_boxes_handler(message: Message | CallbackQuery) -> None:
 async def build_amount_prompt(
     user_id: int, action: CoinActions, currency: CurrencyKey, *, include_diff: bool = False
 ) -> str:
+    """
+    Функция для создания сообщения с просьбой ввести количество валюты
+    :param user_id: ID пользователя
+    :param action: Действие (покупка/продажа)
+    :param currency: Валюта
+    :param include_diff: Включить изменение цены
+    :return: Строка с сообщением
+    """
     verb = {CoinActions.BUY: "приобрести", CoinActions.SELL: "продать"}[action]
     user_data = await get_profile(user_id)
     balance, balance_label = (
@@ -133,6 +163,14 @@ async def build_amount_prompt(
 async def edit_amount_handler(
     state: FSMContext, callback_data: CurrencyCallback, bot: Bot, call: CallbackQuery
 ) -> None:
+    """
+    Функция для обработки взаимодействия с валютами
+    :param state: Состояние
+    :param callback_data: Данные callback
+    :param bot: Бот
+    :param call: Callback
+    :return: None
+    """
     user_id = call.from_user.id
     interaction_data = await state.get_data()
     await state.set_state(Interaction.currency)
@@ -148,6 +186,15 @@ async def edit_amount_handler(
 
 
 async def timeout_checker(bot: Bot, chat_id: int, message_id: int, state: FSMContext, timeout: int):
+    """
+    Функция для проверки таймаута
+    :param bot: Бот
+    :param chat_id: ID чата
+    :param message_id: ID сообщения
+    :param state: Состояние
+    :param timeout: Таймаут
+    :return: None
+    """
     await asyncio.sleep(timeout)
     current_state = await state.get_state()
     if current_state in {Interaction.amount.state, Interaction.confirmation.state}:
@@ -168,6 +215,13 @@ async def timeout_checker(bot: Bot, chat_id: int, message_id: int, state: FSMCon
 
 
 async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None:
+    """
+    Функция для обработки взаимодействия с валютами
+    :param message: Сообщение
+    :param state: Состояние
+    :param bot: Бот
+    :return: None
+    """
     if message.from_user is None:
         return
     user_id = message.from_user.id
@@ -224,6 +278,12 @@ async def adv_interaction(message: Message, state: FSMContext, bot: Bot) -> None
 
 
 async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
+    """
+    Функция для обработки взаимодействия с валютами
+    :param call: Callback
+    :param state: Состояние
+    :return: None
+    """
     if call.message is None:
         return
     user_id = call.from_user.id
@@ -300,6 +360,12 @@ async def final_interaction(call: CallbackQuery, state: FSMContext) -> None:
 
 
 async def change_trend_score(name: str, score: float) -> None:
+    """
+    Функция для изменения тенденции валюты
+    :param name: Название валюты
+    :param score: Тенденция
+    :return: None
+    """
     data = await get_price(name)
     new_score: float = (data["trend_score"] + score) * 0.9
     new_score = max(min(new_score, 100), -100)
@@ -307,12 +373,23 @@ async def change_trend_score(name: str, score: float) -> None:
 
 
 async def secure_uniform(a: float, b: float) -> float:
+    """
+    Функция для генерации случайного числа в диапазоне [a, b]
+    :param a: Нижняя граница
+    :param b: Верхняя граница
+    :return: Случайное число
+    """
     scale = 10**8
     rand = secrets.randbelow(int((b - a) * scale)) / scale
     return a + rand
 
 
 async def is_positive(n: float) -> bool:
+    """
+    Функция для проверки, является ли число положительным
+    :param n: Число
+    :return: True, если число положительное
+    """
     return n > 0
 
 
@@ -320,6 +397,7 @@ async def reached_half_of_limit(
     new_diff_percent: float, *, max_growth: float = None, max_fall: float = None
 ) -> bool:
     """
+    Функция для проверки, достигла ли цена половины лимита
     :param new_diff_percent: Изменение в процентах (например, 34.6819 или -2.3782).
     :param max_growth / max_fall: Доли (например, 0.40 = 40%).
     :return: True, если величина изменения (по модулю для падения) >= 50% от соответствующего лимита.
@@ -347,7 +425,7 @@ async def log_coin_change(name: str, price: float) -> None:
     :param price: Цена
     :return: None
     """
-    len_limit = 5000
+    len_limit = 3 * 576  # 576/day
 
     await db.insert_data(
         "price_history", {"coin_name": name, "price": price, "ts": dt.datetime.now(dt.UTC)}
@@ -372,6 +450,16 @@ async def log_coin_change(name: str, price: float) -> None:
 async def log_and_update_coin(
     name: str, new_price: float, new_diff_percent: float, max_values: dict[str, float], bot: Bot
 ):
+    """
+    Функция для логирования изменения цены валюты
+
+    :param name: Название валюты
+    :param new_price: Цена
+    :param new_diff_percent: Изменение в процентах (например, 34.6819 или -2.3782).
+    :param max_values: Словарь с максимальными значениями роста и падения
+    :param bot: Бот
+    :return: None
+    """
     from database.currencies import get_price
     from database.messages import send_broadcast_message
 
@@ -465,6 +553,12 @@ async def change_coin(name: str, bot: Bot, price: float | None = None) -> None:
 
 
 async def calculate_precise_growth_chance(name: str, simulations: int = 10000) -> float:
+    """
+    Функция для вычисления вероятности роста
+    :param name: Название валюты
+    :param simulations: Количество симуляций
+    :return: Вероятность роста
+    """
     coin_info = await get_price(name, is_round=False)
     trend_score: float = coin_info["trend_score"]
     coins_map = {"st": st, "v": v}
